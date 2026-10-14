@@ -280,7 +280,9 @@ select {
 }
 
 #authStatus:not(:empty),
-#authError:not(:empty) {
+#authError:not(:empty),
+#dataStatus:not(:empty),
+#dataError:not(:empty) {
   margin-bottom: 16px;
 }
 

@@ -9,6 +9,8 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <script src="config.js" defer></script>
+    <script src="model.js" defer></script>
+    <script src="store.js" defer></script>
     <script src="auth.js" defer></script>
     <script src="app.js" defer></script>
   </head>
@@ -21,6 +23,7 @@
         </div>
         <div class="session-actions">
           <p id="sessionSummary" class="session-summary">Visitor</p>
+          <button id="refreshButton" class="button secondary" type="button">Refresh</button>
           <button id="signInButton" class="button" type="button">Sign in</button>
           <button id="profileButton" class="button secondary" type="button" hidden>My profile</button>
           <button id="signOutButton" class="button secondary" type="button" hidden>Sign out</button>
@@ -30,6 +33,8 @@
       <main>
         <p id="authStatus" class="status-line" role="status" aria-atomic="true"></p>
         <p id="authError" class="error-line" role="alert" aria-atomic="true"></p>
+        <p id="dataStatus" class="status-line" role="status" aria-atomic="true"></p>
+        <p id="dataError" class="error-line" role="alert" aria-atomic="true"></p>
         <nav class="section-navigation" aria-label="Main sections">
           <div class="tab-nav" role="tablist" aria-label="Tennis">
             <button id="gamesTabButton" class="tab-button" type="button" role="tab"

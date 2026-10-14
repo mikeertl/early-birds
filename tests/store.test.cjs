@@ -1,0 +1,175 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const createModel = require('../model.js');
+const createStore = require('../store.js');
+const context = { window: {} };
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../config.js'), 'utf8'), context);
+const config = context.window.EarlyBirdsConfig;
+const model = createModel(config);
+const seedUsers = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/users.json'), 'utf8'));
+const seedState = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/current.json'), 'utf8'));
+const now = '2026-10-14T10:00:00Z';
+const clone = value => JSON.parse(JSON.stringify(value));
+function court(id = 'court-a', extra = {}) {
+  return Object.assign({ id, date:'2026-10-14', time:'08:00', durationMinutes:60, courtNumber:1,
+    code:'012345', bookedBy:'mike-ertl', green:['mike-ertl'], reserved:[], createdAt:now, createdBy:'mike-ertl' }, extra);
+}
+function server(initial = {}) {
+  const documents = { 'data/users.json':clone(seedUsers), 'data/current.json':clone(seedState), ...clone(initial) };
+  const revisions = { 'data/users.json':1, 'data/current.json':1 };
+  let puts = 0;
+  let conflicts = 0;
+  let beforePut;
+  let loseAck = false;
+  let failure;
+  let localReads = 0;
+  async function fetch(url, options = {}) {
+    const file = String(url).includes('users.json') ? 'data/users.json' : 'data/current.json';
+    const api = String(url).startsWith('https://api.github.com/');
+    if (!api) { localReads++; return new Response(JSON.stringify(documents[file])); }
+    assert(String(url).includes('/repos/mikeertl/early-birds/contents/'));
+    assert.equal(options.headers.Authorization, 'Bearer synthetic-token');
+    if (failure) return new Response('{}', {status:failure});
+    if (options.method !== 'PUT') {
+      assert(String(url).includes('ref=main'));
+      return new Response(JSON.stringify({type:'file', encoding:'base64', sha:String(revisions[file]), content:Buffer.from(JSON.stringify(documents[file])).toString('base64')}));
+    }
+    puts++;
+    if (beforePut) { const hook = beforePut; beforePut = null; hook(documents, revisions, file); }
+    const body = JSON.parse(options.body);
+    assert.equal(body.branch, 'main');
+    if (body.sha !== String(revisions[file])) { conflicts++; return new Response('{}', {status:409}); }
+    documents[file] = JSON.parse(Buffer.from(body.content, 'base64').toString('utf8'));
+    revisions[file]++;
+    if (loseAck) { loseAck=false; throw new TypeError('sensitive transport details must not escape'); }
+    return new Response(JSON.stringify({content:{sha:String(revisions[file])}}));
+  }
+  return {documents, revisions, fetch, get puts(){return puts;}, get conflicts(){return conflicts;}, get localReads(){return localReads;},
+    set beforePut(value){beforePut=value;}, set loseAck(value){loseAck=value;}, set failure(value){failure=value;} };
+}
+function client(remote, userId='mike-ertl', isAdmin=false, options={}) {
+  let actor = userId ? {userId, isAdmin, token:'synthetic-token'} : null;
+  const store = createStore({config, model, fetch:remote.fetch, getSession:()=>actor, requireWrite:()=>Boolean(actor), now:()=>new Date(now), ...options});
+  return {store, setActor(value){actor=value;}};
+}
+test('initial documents validate and reads do not save', async () => {
+  const remote=server(); const {store}=client(remote);
+  const snapshot=await store.refresh();
+  assert.equal(snapshot.users.users.length, 9); assert.equal(snapshot.state.courts.length,0); assert.equal(remote.puts,0);
+  snapshot.users.users[0].name='Not shared'; assert.notEqual(store.getSnapshot().users.users[0].name,'Not shared');
+});
+test('local visitor reads local JSON; visitors cannot mutate', async () => {
+  const remote=server(); const {store}=client(remote,null,false,{isLocal:true});
+  await store.refresh(); assert.equal(remote.localReads,2);
+  await assert.rejects(store.mutate({type:'courts.cleanup'}), /Sign in/); assert.equal(remote.puts,0);
+});
+test('two clients taking last green place preserve all members and reserve overflow', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','akiko','arda']})];
+  const a=client(remote,'dimitar').store, b=client(remote,'ellen').store;
+  await Promise.all([a.refresh(),b.refresh()]);
+  await Promise.all([a.mutate({type:'participation.set',courtId:'a',status:'green'}),b.mutate({type:'participation.set',courtId:'a',status:'green'})]);
+  const result=remote.documents['data/current.json'].courts[0];
+  assert.equal(result.green.length,4); assert.equal(result.reserved.length,1);
+  assert([...result.green,...result.reserved].includes('dimitar')); assert([...result.green,...result.reserved].includes('ellen'));
+  assert(remote.conflicts>0);
+});
+test('independent court edits merge; same-field edits demand review', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a',{date:'2026-10-15'})];
+  const a=client(remote).store, b=client(remote).store;
+  await Promise.all([
+    a.mutate({type:'court.patch',courtId:'a',expected:{code:'012345'},changes:{code:'654321'}}),
+    b.mutate({type:'court.patch',courtId:'a',expected:{courtNumber:1},changes:{courtNumber:2}}),
+  ]);
+  assert.equal(remote.documents['data/current.json'].courts[0].code,'654321');
+  assert.equal(remote.documents['data/current.json'].courts[0].courtNumber,2);
+  await assert.rejects(a.mutate({type:'court.patch',courtId:'a',expected:{code:'012345'},changes:{code:'111111'}}), /edited by someone else/);
+  assert.equal(remote.documents['data/current.json'].courts[0].code,'654321');
+});
+test('conflicting cleanup preserves another booking and retained bagels', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('expired',{date:'2026-10-13'}),court('today')];
+  const {store}=client(remote);
+  await store.mutate({type:'bagel.add',bagel:{id:'retained',sourceCourtId:'today',date:'2026-10-14',winnerIds:['mike-ertl'],loserIds:['mike-ertl']}}).then(()=>assert.fail('duplicate player accepted'),()=>{});
+  remote.documents['data/current.json'].bagels=[{id:'retained',sourceCourtId:'expired',date:'2026-10-13',
+    winners:[{userId:'mike-ertl',name:'Mike Ertl'}],losers:[{userId:'akiko',name:'Akiko'}],createdAt:now,createdBy:'mike-ertl'}];
+  remote.beforePut=(docs,revisions,file)=>{docs[file].courts.push(court('new',{date:'2026-10-15',courtNumber:2}));revisions[file]++;};
+  await store.mutate({type:'courts.cleanup'});
+  assert.deepEqual(remote.documents['data/current.json'].courts.map(c=>c.id),['today','new']);
+  assert.equal(remote.documents['data/current.json'].bagels[0].id,'retained');
+});
+test('lost acknowledgement confirms the same bagel once, with Unicode snapshots', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','akiko']})];
+  remote.documents['data/users.json'].users.find(u=>u.id==='akiko').name='Akiko 鳥';
+  remote.loseAck=true;
+  const {store}=client(remote);
+  const intent={type:'bagel.add',bagel:{id:'set-1',sourceCourtId:'a',date:'2026-10-14',winnerIds:['mike-ertl'],loserIds:['akiko']}};
+  await store.mutate(intent); await store.mutate(intent);
+  assert.equal(remote.puts,1); assert.equal(remote.documents['data/current.json'].bagels.length,1);
+  assert.equal(remote.documents['data/current.json'].bagels[0].losers[0].name,'Akiko 鳥');
+  await store.mutate({...intent,bagel:{...intent.bagel,id:'set-2'}});
+  assert.equal(remote.documents['data/current.json'].bagels.length,2);
+});
+test('different clients submitting different bagels retain both', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','akiko']})];
+  const a=client(remote).store,b=client(remote,'akiko').store;
+  await Promise.all([a,b].map((store,index)=>store.mutate({type:'bagel.add',bagel:{id:`set-${index}`,sourceCourtId:'a',date:'2026-10-14',winnerIds:['mike-ertl'],loserIds:['akiko']}})));
+  assert.equal(remote.documents['data/current.json'].bagels.length,2);
+});
+test('fresh directory changes block deactivated writers', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a')];
+  let reads=0; const realFetch=remote.fetch;
+  const {store}=client(remote,'mike-ertl',false,{fetch:async(url,options)=>{
+    if(String(url).includes('users.json') && !options.method && ++reads===2){
+      remote.documents['data/users.json'].users.find(u=>u.id==='mike-ertl').active=false;remote.revisions['data/users.json']++;
+    }
+    return realFetch(url,options);
+  }});
+  await assert.rejects(store.mutate({type:'participation.set',courtId:'a',status:'reserved'}),/not active/);
+  assert.equal(remote.puts,0);
+});
+test('queued changes stop when sign-in changes before PUT', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a')];
+  let reads=0; const realFetch=remote.fetch; let app;
+  app=client(remote,'mike-ertl',false,{fetch:async(url,options)=>{
+    if(String(url).includes('users.json') && !options.method && ++reads===2) app.setActor(null);
+    return realFetch(url,options);
+  }});
+  await assert.rejects(app.store.mutate({type:'participation.set',courtId:'a',status:'reserved'}),/Sign-in changed/);
+  assert.equal(remote.puts,0);
+});
+test('directory edits preserve other users, stable references and historical names', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a')];
+  const a=client(remote,'mike-ertl',true).store,b=client(remote,'akiko',true).store;
+  await Promise.all([
+    a.mutate({type:'user.patch',userId:'arda',expected:{name:'Arda'},changes:{name:'Arda Updated'}}),
+    b.mutate({type:'user.patch',userId:'ivan',expected:{active:true},changes:{active:false}}),
+  ]);
+  assert.equal(remote.documents['data/users.json'].users.find(u=>u.id==='arda').name,'Arda Updated');
+  assert.equal(remote.documents['data/users.json'].users.find(u=>u.id==='ivan').active,false);
+  assert.equal(remote.documents['data/current.json'].courts[0].bookedBy,'mike-ertl');
+});
+test('malformed/newer data, invalid capacity and overlaps are rejected without saving', async () => {
+  for (const corrupt of [state=>state.version=2,state=>state.courts=[court('a',{code:'123'})],
+    state=>state.courts=[court('a',{green:['mike-ertl','akiko','arda','dimitar','ellen']})],
+    state=>state.courts=[court('a'),court('b',{courtNumber:2})],
+    state=>state.token='synthetic-token']) {
+    const remote=server(); corrupt(remote.documents['data/current.json']);
+    const {store}=client(remote);
+    await assert.rejects(store.refresh());
+    await assert.rejects(store.mutate({type:'courts.cleanup'}));
+    assert.equal(remote.puts,0);
+  }
+});
+test('permission errors preserve last good snapshot; later refresh recovers', async () => {
+  const remote=server(); const {store}=client(remote);
+  const before=await store.refresh(); remote.failure=403;
+  await assert.rejects(store.mutate({type:'courts.cleanup'}),/denied/);
+  assert.deepEqual(store.getSnapshot(),before); assert.equal(remote.puts,0);
+  remote.failure=null; await store.refresh();
+});
+test('London calendar date and hour are independent of device timezone', () => {
+  assert.deepEqual(model.londonClock('2026-10-14T23:30:00Z'),{date:'2026-10-15',minutes:30});
+  assert.deepEqual(model.londonClock('2026-10-25T01:30:00Z'),{date:'2026-10-25',minutes:90});
+});

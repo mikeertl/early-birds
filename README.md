@@ -27,11 +27,14 @@ There is no dependency installation or build step.
 - `config.js`: public GitHub target, data paths, booking limits and browser-storage keys;
 - `app.js`: application bootstrap;
 - `auth.js`: sign-in, browser sessions, profile and access helpers;
+- `model.js`: version 1 validation and replayable data actions;
+- `store.js`: shared reads, queued saves and conflict reconciliation;
 - `data/users.json`: the agreed initial player directory;
+- `data/current.json`: courts, participation and retained singles/doubles bagels;
 - `manifest.webmanifest`: app identity and relative install/start paths.
 
-The player directory is loaded from `data/users.json`. Shared game and bagel data
-will use `data/current.json` in task 2.4.
+The player directory is loaded from `data/users.json`. Game and bagel data use
+`data/current.json`, initially with empty court and bagel lists.
 GitHub Pages will serve the repository root; hosting has not yet been configured
 or published as part of this scaffold.
 
@@ -50,10 +53,59 @@ My profile lets you change player/Admin mode or replace the token; leaving the
 token field blank keeps the current one. Stored tokens are never prefilled into
 the form. Sign-out removes the saved identity/token/Admin mode and remasks codes.
 
-Shared JSON reconciliation/writes (2.4) and game management are subsequent tasks.
-There are no live game cards yet. The agreed players are seeded in the local JSON
-directory so sign-in can be used during this stage; GitHub directory refresh is
-part of 2.4. Branding artwork and install icons are later tasks.
+Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
+The panels show loaded counts or empty states. Game cards, booking forms, bagel
+entry and Admin editing controls are subsequent tasks. Branding artwork and
+install icons are later tasks.
+
+## Shared data and saves
+
+Visitors on localhost read the checked-out JSON files for preview. Signed-in
+sessions read GitHub directly, and hosted visitors read the public GitHub API.
+Refresh runs on startup, on session changes and when the Refresh button is clicked.
+There is no fallback from a failed authenticated read to an older local copy.
+The initial JSON files must exist in `mikeertl/early-birds` on `main` before live
+reads/saves can succeed; this local task does not push files or publish the site.
+
+The store validates versions, metadata, references, dates, times, court/code
+limits, capacity, overlapping green places and singles/doubles team sizes before
+accepting or writing data. Invalid/unknown formats are rejected, not replaced
+with empty data. A failed refresh retains the last good in-memory snapshot and
+shows an error. No shared snapshot or offline write queue is saved in browser
+storage, so stale browser data cannot be sent as a replacement document.
+
+`EarlyBirdsStore.mutate(action)` queues one intended change. It reads both shared
+files fresh, validates the actor and action, rechecks the directory revision and
+uses the target file's SHA for the PUT. On a 409 conflict it rereads and reapplies
+the action, up to four attempts. Uncertain save acknowledgements are reconciled
+the same way. Caller-provided IDs remain stable across retries; no full-document
+replacement API is exposed. Existing bagels retain their player-name snapshots.
+
+Supported actions for subsequent forms are:
+
+- `court.add` with `court: { id, date, time, courtNumber, code, bookedBy }`;
+- `court.patch` with `courtId`, `changes` and matching `expected` original field values;
+- `court.remove` with `courtId`;
+- `participation.set` with `courtId`, optional `userId`, and `status: "green" | "reserved" | "none"`;
+- `bagel.add` with `bagel: { id, sourceCourtId, date, winnerIds, loserIds }`;
+- `bagel.remove` with `bagelId`;
+- `courts.cleanup` (removes prior London dates; scheduling is task 3.6);
+- `user.add` with `user: { id, name, active }`;
+- `user.patch` with `userId`, `changes` and matching `expected` values.
+
+Generate opaque IDs once per intended creation. Codes supplied to the store must
+already be six-digit strings without the leading star. Edits preserve unrelated
+changes; a conflicting edit to the same field requires review instead of silently
+overwriting it. A full green court sends an additional join to reserves. Cleanup
+replays against current courts and leaves bagels intact. The store enforces the
+agreed booker/Admin permissions independently of button visibility.
+
+GitHub does not offer a multi-file transaction through the Contents API. The
+directory is checked again just before writing, but another user's deactivation
+can still race after that final check. State and directory writes are serialized
+within this browser instance; other browsers are reconciled through file SHAs.
+If sign-in changes before a PUT, the action stops. A PUT already received by
+GitHub may still complete after sign-out; refresh to confirm such a change.
 
 ## Token and access setup
 
@@ -63,8 +115,8 @@ repository **Contents: Read and write** permission and an expiry date. See
 [GitHub's token setup instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
 
 Sign-in performs a read-only repository check. It verifies the credential, but
-does not prove Contents write permission: GitHub must enforce that permission
-on each save when writes are implemented. Admin mode is the agreed trusted-group
+does not prove Contents write permission: GitHub enforces that permission
+on each save. Admin mode is the agreed trusted-group
 interface option, available to any player; it is not an independently authenticated
 role. Court codes are masked visually for visitors, while the underlying JSON
 remains public.
@@ -82,18 +134,30 @@ saved data, the app reports that explicitly.
 `EarlyBirdsUI.setPanelState(panel, state, message)` supplies data-loading states.
 `EarlyBirdsAuth.setUsers(directory)` accepts the refreshed version 1 player
 directory, filters inactive players and signs out a deactivated current player.
-`getSession()` supplies the in-memory session to the future GitHub persistence
+`getSession()` supplies the in-memory session to the GitHub persistence
 module; do not log it or serialize it into shared JSON.
 
-Every future mutation handler must call `EarlyBirdsAuth.requireWrite()` (or
-`requireWrite({ admin: true })` for Admin actions) before making a change. Visitors
-see the sign-in form and an error; no change is made. This is a client-side guard,
-not a substitute for token permissions or shared-data validation.
+Forms should call `EarlyBirdsStore.mutate(action)` and retain their input until
+its promise resolves. The store calls `EarlyBirdsAuth.requireWrite()` before
+queueing work and rechecks actor/permissions against fresh data. Visitors see the
+sign-in form and an error; no change is made. This client-side guard complements
+GitHub token permissions and shared-data validation.
 
 Render codes with `EarlyBirdsAuth.renderCourtCode(element, code)`. It inserts a
 single-star code for a signed-in session or a black sign-in message for visitors,
 keeps the raw code out of visitor DOM attributes, and remasks on sign-out.
 The `early-birds-session-change` event allows game rendering to track session changes.
+
+Run the model/store regression checks (no server, credentials or dependencies):
+
+```sh
+node --test tests/store.test.cjs
+```
+
+They simulate two independent clients sharing a GitHub Contents store, including
+last-place joins, concurrent edits/bagels/cleanup, lost acknowledgements, Unicode,
+directory changes, sign-out during a save and malformed data. No live GitHub
+writes or test-repository verification have been performed; that is task 2.6.
 
 Run the browser regression checks with a local preview running, using Node.js
 22+ and Chrome (Node 20 can use `--experimental-websocket`):
@@ -106,7 +170,8 @@ Use the port printed by `go.sh`. On systems without Chrome in the usual macOS
 location, set `CHROME_BIN` to its executable. Checks use a temporary Chrome profile,
 synthetic tokens and intercepted GitHub responses, and never write to GitHub.
 They cover failed sign-in, profile updates, restore, cancellation, storage failure,
-cross-tab sign-out, code masking and phone/desktop layouts.
+cross-tab sign-out, code masking, local/GitHub refresh, refresh failure/recovery
+and phone/desktop layouts.
 
 The staged plan and version 1 data contract are maintained in
 `../@project/01-init.md` in the surrounding workspace.

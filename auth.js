@@ -10,6 +10,7 @@
   var controller;
   var el = {};
   var codes = new Map();
+  var lastPublishedSession;
 
   function init() {
     ["signInButton", "profileButton", "signOutButton", "authStatus", "authError",
@@ -33,7 +34,7 @@
       }
     });
     renderSession();
-    loadUsers();
+    return loadUsers();
   }
 
   function activeUser(id) {
@@ -74,9 +75,7 @@
     el.profileStatus.textContent = "Loading players…";
     el.profileError.textContent = "";
     try {
-      var response = await fetch(config.github.usersPath, { cache: "no-store" });
-      if (!response.ok) throw new Error("Player load failed");
-      setUsers(await response.json());
+      setUsers(await window.EarlyBirdsStore.loadDirectory());
       el.profileStatus.textContent = "";
       if (el.profileUser.disabled) el.profileError.textContent = "No active players. Contact an organiser.";
       await restoreSession();
@@ -250,7 +249,11 @@
       if (!element.isConnected) { codes.delete(element); return; }
       showCode(element, code);
     });
-    window.dispatchEvent(new CustomEvent("early-birds-session-change"));
+    var identity = session ? [session.userId, session.token, session.isAdmin] : null;
+    if (JSON.stringify(identity) !== JSON.stringify(lastPublishedSession)) {
+      lastPublishedSession = identity;
+      window.dispatchEvent(new CustomEvent("early-birds-session-change"));
+    }
   }
 
   function requireWrite(options) {

@@ -69,6 +69,12 @@ async function main() {
       window.fetch = async (url, options = {}) => {
         if (!String(url).startsWith('https://api.github.com/')) return realFetch(url, options);
         if (options.method && options.method !== 'GET') throw new Error('Unexpected write');
+        if (String(url).includes('/contents/')) {
+          if (window.failShared) return new Response('{}', {status:503});
+          const file = String(url).includes('users.json') ? 'data/users.json' : 'data/current.json';
+          const data = await (await realFetch(file)).text();
+          return new Response(JSON.stringify({ type:'file', encoding:'base64', content:btoa(data), sha:'test-sha' }));
+        }
         window.tokenChecks++;
         const token = options.headers.Authorization.replace('Bearer ', '');
         if (token === 'test-network') throw new TypeError('Never echo ' + token);
@@ -99,6 +105,9 @@ async function main() {
       }
       check(auth.getSession() === null && el('adminTabButton').hidden, 'visitor access');
       check(el('profileUser').options.length === 10, 'nine agreed players loaded');
+      el('refreshButton').click(); await wait();
+      check(el('dataStatus').textContent.includes('local preview') && !el('refreshButton').disabled, 'visitor refresh uses local preview JSON');
+      check(window.EarlyBirdsStore.getSnapshot().users.users.length === 9, 'validated shared snapshot available');
       localStorage.setItem('longbourn-user-id', 'unrelated');
       const code = document.createElement('span'); document.body.appendChild(code);
       auth.renderCourtCode(code, '012345');
@@ -112,6 +121,12 @@ async function main() {
       check(!auth.getSession() && !el('profileError').textContent.includes('test-network') && el('profileError').textContent.includes('connection'), 'network error does not expose credential');
       await submit('test-valid');
       check(auth.getSession().userId === 'mike-ertl' && !el('profileDialog').open && el('adminTabButton').hidden, 'player sign-in');
+      await wait();
+      check(el('dataError').textContent === '' && !el('dataStatus').textContent.includes('local preview'), 'sign-in refreshes GitHub data');
+      window.failShared = true; el('refreshButton').click(); await wait();
+      check(el('dataError').textContent.includes('could not complete') && window.EarlyBirdsStore.getSnapshot().users.users.length === 9, 'failed refresh preserves last good data and shows error');
+      window.failShared = false; el('refreshButton').click(); await wait();
+      check(el('dataError').textContent === '' && el('dataStatus').textContent.includes('refreshed'), 'refresh retry recovers');
       check(el('profileToken').value === '' && localStorage.getItem(keys.token) === 'test-valid', 'token saved locally and cleared from form');
       check(code.textContent === '*012345', 'signed-in code preserves zero and star');
       check(auth.requireWrite() && !auth.requireWrite({admin:true}), 'Admin-only change guard');

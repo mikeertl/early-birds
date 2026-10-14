@@ -32,7 +32,43 @@
       selectTab: selectTab,
       setPanelState: setPanelState,
     });
-    window.EarlyBirdsAuth.init();
+    var auth = window.EarlyBirdsAuth;
+    var model = window.createEarlyBirdsModel(config);
+    var store = window.createEarlyBirdsStore({
+      config: config, model: model, fetch: window.fetch.bind(window),
+      getSession: auth.getSession, requireWrite: auth.requireWrite,
+      isLocal: ["localhost", "127.0.0.1", "[::1]"].indexOf(window.location.hostname) >= 0,
+    });
+    window.EarlyBirdsStore = store;
+    store.subscribe(function (event) {
+      var phase = event.status.phase;
+      var pending = phase === "loading" || phase === "saving";
+      document.getElementById("refreshButton").disabled = pending;
+      document.getElementById("dataStatus").textContent = phase === "error" ? "" : event.status.message +
+        (event.status.source === "local" && phase === "ready" ? " Viewing local preview data." : "");
+      document.getElementById("dataError").textContent = phase === "error" ? event.status.message : "";
+      if (phase === "ready" && event.data) {
+        auth.setUsers(event.data.users);
+        showCount("games", event.data.state.courts.length, "booked courts");
+        showCount("bagels", event.data.state.bagels.length, "recorded sets");
+        showCount("admin", event.data.users.users.filter(function (user) { return user.active; }).length, "active players");
+      } else if (!event.data) {
+        Object.keys(emptyMessages).forEach(function (name) { setPanelState(name, phase === "error" ? "error" : "loading", event.status.message); });
+      }
+    });
+    function refresh() { return store.refresh().catch(function () { /* The store publishes a safe error message. */ }); }
+    document.getElementById("refreshButton").addEventListener("click", refresh);
+    auth.init().then(function () {
+      window.addEventListener("early-birds-session-change", refresh);
+      refresh();
+    });
+  }
+
+  function showCount(name, count, label) {
+    if (!count) { setPanelState(name, "empty"); return; }
+    var content = panels.find(function (panel) { return panel.dataset.panel === name; }).querySelector("[data-panel-content]");
+    content.textContent = count + " " + label + ".";
+    setPanelState(name, "ready");
   }
 
   function selectTab(name) {
