@@ -1,0 +1,10 @@
+{
+  "name": "Early Birds Tennis",
+  "short_name": "Early Birds",
+  "description": "Tennis court bookings and bagels.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#1f5d42"
+}
