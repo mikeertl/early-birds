@@ -173,3 +173,80 @@ test('London calendar date and hour are independent of device timezone', () => {
   assert.deepEqual(model.londonClock('2026-10-14T23:30:00Z'),{date:'2026-10-15',minutes:30});
   assert.deepEqual(model.londonClock('2026-10-25T01:30:00Z'),{date:'2026-10-25',minutes:90});
 });
+test('pending and saved status require a confirmed result', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a')];
+  const {store}=client(remote); const events=[]; store.subscribe(event=>events.push(event.status));
+  await store.mutate({type:'participation.set',courtId:'a',status:'reserved'});
+  assert.equal(events[0].save.outcome,'pending');
+  assert.equal(events.at(-1).save.outcome,'saved');
+  assert.equal(store.getRecovery(),null);
+});
+test('denied PUT preserves intent; refresh does not claim it was saved; retry recovers', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a')];
+  let denied=true; const realFetch=remote.fetch; const events=[];
+  const {store}=client(remote,'mike-ertl',false,{fetch:(url,options)=>
+    options.method==='PUT' && denied ? Promise.resolve(new Response('{}',{status:403})) : realFetch(url,options)});
+  store.subscribe(event=>events.push(event.status)); await store.refresh();
+  const intent={type:'participation.set',courtId:'a',status:'reserved'};
+  await assert.rejects(store.mutate(intent),error=>error.outcome==='failed');
+  assert.equal(events.at(-1).save.outcome,'failed'); assert.equal(events.at(-1).stale,true);
+  assert.deepEqual(store.getRecovery().action,intent);
+  intent.status='none'; assert.equal(store.getRecovery().action.status,'reserved');
+  await store.refresh(); assert.equal(events.at(-1).save.outcome,'failed'); assert.equal(events.at(-1).stale,false);
+  denied=false; await store.retry();
+  assert.equal(events.at(-1).save.outcome,'saved'); assert.equal(store.getRecovery(),null);
+  assert.deepEqual(remote.documents['data/current.json'].courts[0].reserved,['mike-ertl']);
+});
+test('unknown acknowledgement remains uncertain across failed retry and refresh, then confirms once', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','akiko']})];
+  const realFetch=remote.fetch; remote.loseAck=true; const events=[];
+  const {store}=client(remote,'mike-ertl',false,{fetch:async(url,options)=>{
+    try{return await realFetch(url,options);}catch(error){remote.failure=503;throw error;}
+  }});
+  store.subscribe(event=>events.push(event.status)); await store.refresh();
+  const intent={type:'bagel.add',bagel:{id:'uncertain-set',sourceCourtId:'a',date:'2026-10-14',winnerIds:['mike-ertl'],loserIds:['akiko']}};
+  await assert.rejects(store.mutate(intent),error=>error.outcome==='uncertain');
+  await assert.rejects(store.retry(),error=>error.outcome==='uncertain');
+  assert.equal(events.at(-1).save.outcome,'uncertain');
+  remote.failure=null; await store.refresh(); assert.equal(events.at(-1).save.outcome,'uncertain');
+  await store.retry(); assert.equal(events.at(-1).save.outcome,'saved');
+  assert.equal(remote.puts,1); assert.equal(remote.documents['data/current.json'].bagels.length,1);
+});
+test('expired token and rate limits retain failed input without exposing transport details', async () => {
+  for(const status of [401,429]) {
+    const remote=server(); remote.documents['data/current.json'].courts=[court('a')];
+    const {store}=client(remote); const events=[]; store.subscribe(event=>events.push(event.status));
+    await store.refresh(); remote.failure=status;
+    await assert.rejects(store.mutate({type:'participation.set',courtId:'a',status:'reserved'}),error=>error.outcome==='failed');
+    assert.equal(events.at(-1).save.outcome,'failed'); assert(store.getRecovery());
+    assert(!events.at(-1).message.includes('synthetic-token')); assert.equal(remote.puts,0);
+  }
+});
+test('malformed response marks existing snapshot stale without replacing it', async () => {
+  const remote=server(); let malformed=false; const realFetch=remote.fetch;
+  const {store}=client(remote,'mike-ertl',false,{fetch:(url,options)=>malformed ? Promise.resolve(new Response('broken JSON')) : realFetch(url,options)});
+  const events=[]; store.subscribe(event=>events.push(event.status));
+  const before=await store.refresh(); malformed=true;
+  await assert.rejects(store.refresh(),/valid JSON/);
+  assert.deepEqual(store.getSnapshot(),before); assert.equal(events.at(-1).stale,true);
+});
+test('recovery cannot be replayed as another player', async () => {
+  const remote=server(); remote.failure=403; const app=client(remote);
+  await assert.rejects(app.store.mutate({type:'courts.cleanup'}));
+  app.setActor({userId:'akiko',token:'synthetic-token',isAdmin:false});
+  await assert.rejects(app.store.retry(),/original player/);
+  assert(app.store.getRecovery()); assert.equal(remote.puts,0);
+});
+test('acknowledged save after sign-out is reported as saved, not failed or replayable', async () => {
+  const remote=server(); remote.documents['data/current.json'].courts=[court('a')];
+  const realFetch=remote.fetch; let app; const events=[];
+  app=client(remote,'mike-ertl',false,{fetch:async(url,options)=>{
+    const response=await realFetch(url,options);
+    if(options.method==='PUT') app.setActor(null);
+    return response;
+  }});
+  app.store.subscribe(event=>events.push(event.status)); await app.store.refresh();
+  await assert.rejects(app.store.mutate({type:'participation.set',courtId:'a',status:'reserved'}),error=>error.outcome==='saved');
+  assert.equal(events.at(-1).save.outcome,'saved'); assert(events.at(-1).save.message.includes('before sign-in changed'));
+  assert.equal(app.store.getRecovery(),null); assert.equal(remote.puts,1);
+});

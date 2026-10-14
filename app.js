@@ -47,6 +47,13 @@
       document.getElementById("dataStatus").textContent = phase === "error" ? "" : event.status.message +
         (event.status.source === "local" && phase === "ready" ? " Viewing local preview data." : "");
       document.getElementById("dataError").textContent = phase === "error" ? event.status.message : "";
+      var save = event.status.save;
+      var saveFailed = save.outcome === "failed" || save.outcome === "uncertain";
+      document.getElementById("saveStatus").textContent = saveFailed ? "" : save.message;
+      document.getElementById("saveError").textContent = saveFailed ? save.message : "";
+      document.getElementById("staleNotice").hidden = !event.status.stale;
+      document.getElementById("retrySaveButton").hidden = !save.canRetry;
+      document.getElementById("retrySaveButton").disabled = pending;
       if (phase === "ready" && event.data) {
         auth.setUsers(event.data.users);
         showCount("games", event.data.state.courts.length, "booked courts");
@@ -58,6 +65,9 @@
     });
     function refresh() { return store.refresh().catch(function () { /* The store publishes a safe error message. */ }); }
     document.getElementById("refreshButton").addEventListener("click", refresh);
+    document.getElementById("retrySaveButton").addEventListener("click", function () {
+      store.retry().catch(function () { /* The store keeps the change and publishes its outcome. */ });
+    });
     auth.init().then(function () {
       window.addEventListener("early-birds-session-change", refresh);
       refresh();

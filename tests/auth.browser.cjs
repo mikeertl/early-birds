@@ -66,15 +66,23 @@ async function main() {
     await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
       const realFetch = window.fetch.bind(window);
       window.tokenChecks = 0;
+      window.mockFiles = {};
       window.fetch = async (url, options = {}) => {
         if (!String(url).startsWith('https://api.github.com/')) return realFetch(url, options);
-        if (options.method && options.method !== 'GET') throw new Error('Unexpected write');
         if (String(url).includes('/contents/')) {
           if (window.failShared) return new Response('{}', {status:503});
           const file = String(url).includes('users.json') ? 'data/users.json' : 'data/current.json';
-          const data = await (await realFetch(file)).text();
+          if (options.method === 'PUT') {
+            if (!window.allowWrites) throw new Error('Unexpected write');
+            if (window.denySave) return new Response('{}', {status:403});
+            await new Promise(resolve => setTimeout(resolve, 50));
+            window.mockFiles[file] = atob(JSON.parse(options.body).content);
+            return new Response(JSON.stringify({content:{sha:'test-sha'}}));
+          }
+          const data = window.mockFiles[file] || await (await realFetch(file)).text();
           return new Response(JSON.stringify({ type:'file', encoding:'base64', content:btoa(data), sha:'test-sha' }));
         }
+        if (options.method && options.method !== 'GET') throw new Error('Unexpected write');
         window.tokenChecks++;
         const token = options.headers.Authorization.replace('Bearer ', '');
         if (token === 'test-network') throw new TypeError('Never echo ' + token);
@@ -130,8 +138,25 @@ async function main() {
       check(el('dataError').textContent === '' && !el('dataStatus').textContent.includes('local preview'), 'sign-in refreshes GitHub data');
       window.failShared = true; el('refreshButton').click(); await wait();
       check(el('dataError').textContent.includes('could not complete') && window.EarlyBirdsStore.getSnapshot().users.users.length === 9, 'failed refresh preserves last good data and shows error');
+      check(!el('staleNotice').hidden, 'failed refresh labels old data as stale');
       window.failShared = false; el('refreshButton').click(); await wait();
       check(el('dataError').textContent === '' && el('dataStatus').textContent.includes('refreshed'), 'refresh retry recovers');
+      check(el('staleNotice').hidden, 'successful refresh clears stale notice');
+      window.allowWrites = true; window.denySave = true;
+      const intent = {type:'court.add',court:{id:'browser-retry-court',date:'2099-10-14',time:'08:00',courtNumber:1,code:'012345',bookedBy:'mike-ertl'}};
+      const saving = window.EarlyBirdsStore.mutate(intent);
+      check(el('saveStatus').textContent === '' || !el('saveStatus').textContent.includes('saved'), 'no premature saved message');
+      await saving.catch(() => {});
+      check(el('saveError').textContent.includes('not saved') && !el('retrySaveButton').hidden, 'failed save keeps intent and offers retry');
+      intent.court.code = '999999';
+      check(window.EarlyBirdsStore.getRecovery().action.court.code === '012345', 'stored retry intent preserves original input');
+      el('refreshButton').click(); await wait();
+      check(el('saveError').textContent.includes('not saved'), 'refresh does not erase failed-save outcome');
+      window.denySave = false; el('retrySaveButton').click();
+      await new Promise(resolve => setTimeout(resolve, 150));
+      check(el('saveStatus').textContent.includes('saved') && el('saveError').textContent === '' && el('retrySaveButton').hidden, 'retry button confirms save and clears recovery');
+      check(window.EarlyBirdsStore.getSnapshot().state.courts[0].code === '012345', 'retry saves original values');
+      window.allowWrites = false;
       check(el('profileToken').value === '' && localStorage.getItem(keys.token) === 'test-valid', 'token saved locally and cleared from form');
       check(code.textContent === '*012345', 'signed-in code preserves zero and star');
       check(auth.requireWrite() && !auth.requireWrite({admin:true}), 'Admin-only change guard');

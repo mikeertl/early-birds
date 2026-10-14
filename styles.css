@@ -282,7 +282,9 @@ select {
 #authStatus:not(:empty),
 #authError:not(:empty),
 #dataStatus:not(:empty),
-#dataError:not(:empty) {
+#dataError:not(:empty),
+#saveStatus:not(:empty),
+#saveError:not(:empty) {
   margin-bottom: 16px;
 }
 

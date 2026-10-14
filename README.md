@@ -62,6 +62,19 @@ The panels show loaded counts or empty states. Game cards, booking forms, bagel
 entry and Admin editing controls are subsequent tasks. Branding artwork and
 install icons are later tasks.
 
+Task 2.5 adds separate save outcomes and recovery: a pending change is shown as
+saving, a confirmed change as saved, a rejected change as not saved, and a lost
+acknowledgement as not confirmed. These outcomes stay visible across data refreshes.
+If a refresh fails, a notice marks the retained snapshot as the last loaded data.
+
+Failed or uncertain actions keep their original values/IDs in this tab and offer
+**Retry last change** when the original player is signed in with the same Admin
+mode. You may replace an expired token and then retry. Retry rereads shared data
+and reconciles the same action rather than creating a duplicate. Retrying as a
+different player is blocked. Recovery is in memory only: closing/reloading the
+tab loses this retained action. Forms added in later tasks must keep their own
+input until the save promise resolves, and should use the recovery API after a failure.
+
 ## Shared data and saves
 
 Visitors on localhost read the checked-out JSON files for preview. Signed-in
@@ -84,6 +97,14 @@ uses the target file's SHA for the PUT. On a 409 conflict it rereads and reappli
 the action, up to four attempts. Uncertain save acknowledgements are reconciled
 the same way. Caller-provided IDs remain stable across retries; no full-document
 replacement API is exposed. Existing bagels retain their player-name snapshots.
+
+`EarlyBirdsStore.getRecovery()` returns a copy of the last failed action and its
+`failed`/`uncertain` outcome, without credentials. `retry()` reuses that action.
+Store subscriptions include `status.save` (`outcome`, `message`, `canRetry`) and
+`status.stale`. Refresh success does not itself imply that a failed action saved.
+Rejected save promises carry an `outcome`; if GitHub acknowledged a PUT just
+before sign-out, that outcome is `saved` with guidance to refresh, and the action
+is not offered for replay.
 
 Supported actions for subsequent forms are:
 
@@ -160,7 +181,8 @@ node --test tests/store.test.cjs
 
 They simulate two independent clients sharing a GitHub Contents store, including
 last-place joins, concurrent edits/bagels/cleanup, lost acknowledgements, Unicode,
-directory changes, sign-out during a save and malformed data. No live GitHub
+directory changes, sign-out during a save, malformed data, failed/uncertain outcomes
+and retry input preservation. No live GitHub
 writes or test-repository verification have been performed; that is task 2.6.
 
 Run the browser regression checks with a local preview running, using Node.js
@@ -175,7 +197,8 @@ location, set `CHROME_BIN` to its executable. Checks use a temporary Chrome prof
 synthetic tokens and intercepted GitHub responses, and never write to GitHub.
 They cover failed sign-in, profile updates, restore, cancellation, storage failure,
 cross-tab sign-out, retained-token reuse/forgetting, signed-out reload, code masking, local/GitHub refresh, refresh failure/recovery
-and phone/desktop layouts.
+and phone/desktop layouts. They also simulate denied saves and verify that the
+retry button retains original values and only shows saved after confirmation.
 
 The staged plan and version 1 data contract are maintained in
 `../@project/01-init.md` in the surrounding workspace.
