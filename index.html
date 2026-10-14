@@ -9,15 +9,116 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <script src="config.js" defer></script>
+    <script src="auth.js" defer></script>
     <script src="app.js" defer></script>
   </head>
-  <body>
+  <body data-auth="signed-out" data-admin="false" data-tab="games">
     <div class="app-shell">
-      <main class="panel" aria-labelledby="app-title">
-        <h1 id="app-title">Early Birds Tennis</h1>
-        <p>Court bookings and bagels.</p>
+      <header class="topbar">
+        <div class="brand">
+          <p class="brand-eyebrow">A good start to the day</p>
+          <h1 id="app-title">Early Birds Tennis</h1>
+        </div>
+        <div class="session-actions">
+          <p id="sessionSummary" class="session-summary">Visitor</p>
+          <button id="signInButton" class="button" type="button">Sign in</button>
+          <button id="profileButton" class="button secondary" type="button" hidden>My profile</button>
+          <button id="signOutButton" class="button secondary" type="button" hidden>Sign out</button>
+        </div>
+      </header>
+
+      <main>
+        <p id="authStatus" class="status-line" role="status" aria-atomic="true"></p>
+        <p id="authError" class="error-line" role="alert" aria-atomic="true"></p>
+        <nav class="section-navigation" aria-label="Main sections">
+          <div class="tab-nav" role="tablist" aria-label="Tennis">
+            <button id="gamesTabButton" class="tab-button" type="button" role="tab"
+              aria-selected="true" aria-controls="gamesPanel" data-tab="games">Games</button>
+            <button id="adminTabButton" class="tab-button" type="button" role="tab"
+              aria-selected="false" aria-controls="adminPanel" data-tab="admin" tabindex="-1" hidden>Admin</button>
+            <button id="bagelsTabButton" class="tab-button" type="button" role="tab"
+              aria-selected="false" aria-controls="bagelsPanel" data-tab="bagels" tabindex="-1">Bagels</button>
+          </div>
+        </nav>
+
+        <section id="gamesPanel" class="panel tab-panel" role="tabpanel"
+          aria-labelledby="gamesTabButton" tabindex="0" data-panel="games" aria-busy="false">
+          <div class="section-heading">
+            <p class="section-eyebrow">See you on court</p>
+            <h2>Games</h2>
+            <p>Booked courts and the players joining them.</p>
+          </div>
+          <div class="panel-state" data-state-box>
+            <p class="state-title" data-state-title>No courts to show yet</p>
+            <p class="state-description" data-state-description>Upcoming games will appear here.</p>
+          </div>
+          <div id="gamesList" class="content-list" data-panel-content hidden></div>
+          <p class="status-line" data-panel-status role="status" aria-atomic="true"></p>
+          <p class="error-line" data-panel-error role="alert" aria-atomic="true"></p>
+        </section>
+
+        <section id="adminPanel" class="panel tab-panel" role="tabpanel"
+          aria-labelledby="adminTabButton" tabindex="0" data-panel="admin" aria-busy="false" hidden>
+          <div class="section-heading">
+            <p class="section-eyebrow">Keep things running</p>
+            <h2>Admin</h2>
+            <p>Manage players, courts and bagels.</p>
+          </div>
+          <div class="panel-state" data-state-box>
+            <p class="state-title" data-state-title>No admin items to show yet</p>
+            <p class="state-description" data-state-description>Player and court management will appear here.</p>
+          </div>
+          <div id="adminContent" class="content-list" data-panel-content hidden></div>
+          <p class="status-line" data-panel-status role="status" aria-atomic="true"></p>
+          <p class="error-line" data-panel-error role="alert" aria-atomic="true"></p>
+        </section>
+
+        <section id="bagelsPanel" class="panel tab-panel" role="tabpanel"
+          aria-labelledby="bagelsTabButton" tabindex="0" data-panel="bagels" aria-busy="false" hidden>
+          <div class="section-heading">
+            <p class="section-eyebrow">Six games. Love.</p>
+            <h2>Bagels</h2>
+            <p>Our 6–0 sets, with the latest first.</p>
+          </div>
+          <div class="panel-state" data-state-box>
+            <p class="state-title" data-state-title>No bagels to show yet</p>
+            <p class="state-description" data-state-description>Recorded 6–0 sets will appear here.</p>
+          </div>
+          <div id="bagelsList" class="content-list" data-panel-content hidden></div>
+          <p class="status-line" data-panel-status role="status" aria-atomic="true"></p>
+          <p class="error-line" data-panel-error role="alert" aria-atomic="true"></p>
+        </section>
         <noscript><p>Please enable JavaScript to use Early Birds Tennis.</p></noscript>
       </main>
+      <dialog id="profileDialog" aria-labelledby="profileTitle" aria-describedby="profileDescription">
+        <form id="profileForm">
+          <h2 id="profileTitle">Sign in</h2>
+          <p id="profileDescription">Choose your name and paste the shared GitHub token. Games and bagels are also available without signing in.</p>
+          <label for="profileUser">Name</label>
+          <select id="profileUser" name="player" required disabled>
+            <option value="">Loading players…</option>
+          </select>
+          <button id="reloadUsersButton" class="button secondary" type="button" hidden>Retry loading players</button>
+          <label for="profileToken">GitHub token</label>
+          <input id="profileToken" name="token" type="password" autocomplete="off" spellcheck="false"
+            autocapitalize="none" aria-describedby="tokenHelp" required />
+          <p id="tokenHelp" class="field-help">Your name and token are saved only in this browser. Sign out to remove them.</p>
+          <label class="check-label"><input id="profileAdmin" type="checkbox" /> Show Admin tab</label>
+          <p class="field-help">Any player can choose Admin mode. Changes still need a GitHub token with write permission.</p>
+          <details class="token-guide">
+            <summary>How to get a token</summary>
+            <p>Use the token supplied separately by the organiser. The organiser can create a fine-grained personal access token for <strong>mikeertl/early-birds</strong> with repository <strong>Contents: Read and write</strong> permission and an expiry date.</p>
+            <p><a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank" rel="noopener noreferrer">GitHub token setup instructions</a></p>
+            <p>Court codes are masked for visitors in the app; the underlying JSON is public.</p>
+          </details>
+          <p id="profileStatus" class="status-line" role="status" aria-atomic="true"></p>
+          <p id="profileError" class="error-line" role="alert" aria-atomic="true"></p>
+          <div class="form-actions">
+            <button id="saveProfileButton" class="button" type="submit" disabled>Sign in</button>
+            <button id="cancelProfileButton" class="button secondary" type="button">Cancel</button>
+          </div>
+        </form>
+      </dialog>
       <footer class="app-footer">Version <span id="appVersion">2026.10.14.1</span></footer>
     </div>
   </body>
