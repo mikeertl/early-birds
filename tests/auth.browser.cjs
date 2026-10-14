@@ -79,7 +79,8 @@ async function main() {
         const token = options.headers.Authorization.replace('Bearer ', '');
         if (token === 'test-network') throw new TypeError('Never echo ' + token);
         if (token === 'test-slow') await new Promise(resolve => setTimeout(resolve, 300));
-        const status = token === 'test-invalid' ? 401 : token === 'test-denied' ? 403 : 200;
+        const status = token === 'test-invalid' ? 401 : token === 'test-denied' ? 403 :
+          token === 'test-hidden' ? 404 : token === 'test-unavailable' ? 503 : 200;
         return new Response('{}', { status });
       };
     ` });
@@ -117,6 +118,10 @@ async function main() {
       check(!auth.getSession() && el('profileError').textContent.includes('invalid') && el('profileToken').value === 'test-invalid', 'invalid token retains input; no sign-in');
       await submit('test-denied');
       check(!auth.getSession() && el('profileError').textContent.includes('denied'), 'denied token');
+      await submit('test-hidden');
+      check(!auth.getSession() && el('profileError').textContent.includes('404') && el('profileError').textContent.includes('Repository access'), 'hidden repository gives token-selection guidance');
+      await submit('test-unavailable');
+      check(!auth.getSession() && el('profileError').textContent.includes('HTTP 503'), 'GitHub outage distinguished from invalid token');
       await submit('test-network');
       check(!auth.getSession() && !el('profileError').textContent.includes('test-network') && el('profileError').textContent.includes('connection'), 'network error does not expose credential');
       await submit('test-valid');
@@ -140,9 +145,17 @@ async function main() {
       el('profileButton').click(); await submit('test-valid', 'akiko', true);
       el('adminTabButton').click(); el('signOutButton').click(); await wait();
       check(!auth.getSession() && el('adminTabButton').hidden && !el('gamesPanel').hidden, 'sign-out leaves Admin');
-      check(!localStorage.getItem(keys.token) && !localStorage.getItem(keys.userId) && !localStorage.getItem(keys.adminMode), 'sign-out clears profile keys');
+      check(localStorage.getItem(keys.token) === 'test-valid' && !localStorage.getItem(keys.userId) && !localStorage.getItem(keys.adminMode), 'sign-out retains token while clearing player/admin');
       check(code.textContent.includes('Sign in') && !code.outerHTML.includes('012345'), 'sign-out remasks code');
       check(localStorage.getItem('longbourn-user-id') === 'unrelated', 'Longbourn storage untouched');
+      el('signInButton').click();
+      check(el('profileToken').value === '' && !el('profileToken').required && el('tokenHelp').textContent.includes('saved'), 'saved token is reusable without exposing it in the input');
+      await submit('', 'akiko');
+      check(auth.getSession().token === 'test-valid', 'sign back in without pasting token');
+      el('profileButton').click(); el('forgetTokenButton').click(); await wait();
+      check(!auth.getSession() && !localStorage.getItem(keys.token), 'forget token signs out and removes credential');
+      el('signInButton').click(); check(el('profileToken').required, 'forget token requires a new paste');
+      el('cancelProfileButton').click(); await wait();
       el('signInButton').click();
       await submit('test-slow'); el('cancelProfileButton').click();
       await new Promise(resolve => setTimeout(resolve, 350));
@@ -172,9 +185,17 @@ async function main() {
     assert.equal(await evaluate('document.getElementById("adminTabButton").hidden'), false);
     assert.equal(await evaluate('window.tokenChecks'), 1);
     console.log('Reload restores profile after checking token again');
-    await evaluate(`localStorage.removeItem(window.EarlyBirdsConfig.storageKeys.token); window.dispatchEvent(new StorageEvent('storage', {key: window.EarlyBirdsConfig.storageKeys.token}));`);
+    await evaluate(`localStorage.removeItem(window.EarlyBirdsConfig.storageKeys.userId); window.dispatchEvent(new StorageEvent('storage', {key: window.EarlyBirdsConfig.storageKeys.userId}));`);
     assert.equal(await evaluate('window.EarlyBirdsAuth.getSession()'), null);
     console.log('Cross-tab sign-out clears active session');
+    await cdp('Page.reload');
+    for (let n = 0; n < 100; n++) {
+      if (await evaluate('Boolean(window.EarlyBirdsAuth && document.getElementById("profileUser").options.length === 10)')) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.equal(await evaluate('window.EarlyBirdsAuth.getSession()'), null);
+    assert.equal(await evaluate('localStorage.getItem(window.EarlyBirdsConfig.storageKeys.token)'), 'test-valid');
+    console.log('Signed-out reload keeps token without restoring a player session');
     await evaluate('document.getElementById("signInButton").click()');
     for (const width of [320, 390, 768, 1280]) {
       await cdp('Emulation.setDeviceMetricsOverride', {width, height:850, deviceScaleFactor:1, mobile:width<540});

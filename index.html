@@ -107,7 +107,7 @@
           <label for="profileToken">GitHub token</label>
           <input id="profileToken" name="token" type="password" autocomplete="off" spellcheck="false"
             autocapitalize="none" aria-describedby="tokenHelp" required />
-          <p id="tokenHelp" class="field-help">Your name and token are saved only in this browser. Sign out to remove them.</p>
+          <p id="tokenHelp" class="field-help">Your token is saved only in this browser and kept when you sign out. Use Forget saved token to remove it.</p>
           <label class="check-label"><input id="profileAdmin" type="checkbox" /> Show Admin tab</label>
           <p class="field-help">Any player can choose Admin mode. Changes still need a GitHub token with write permission.</p>
           <details class="token-guide">
@@ -121,6 +121,7 @@
           <div class="form-actions">
             <button id="saveProfileButton" class="button" type="submit" disabled>Sign in</button>
             <button id="cancelProfileButton" class="button secondary" type="button">Cancel</button>
+            <button id="forgetTokenButton" class="button secondary" type="button" hidden>Forget saved token</button>
           </div>
         </form>
       </dialog>

@@ -51,7 +51,11 @@ select Admin mode. The app checks the credential with GitHub before activating
 or restoring the session. Public Games and Bagels remain available without it.
 My profile lets you change player/Admin mode or replace the token; leaving the
 token field blank keeps the current one. Stored tokens are never prefilled into
-the form. Sign-out removes the saved identity/token/Admin mode and remasks codes.
+the form. Sign-out removes the saved identity/Admin mode and remasks codes, but
+keeps the token for next time. To sign back in, choose your name and leave the
+token field blank. Use **Forget saved token** in the sign-in/profile form to sign
+out and remove the token. A signed-out reload keeps the token without restoring
+a player session; it is checked with GitHub again when you next sign in.
 
 Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
 The panels show loaded counts or empty states. Game cards, booking forms, bagel
@@ -170,7 +174,7 @@ Use the port printed by `go.sh`. On systems without Chrome in the usual macOS
 location, set `CHROME_BIN` to its executable. Checks use a temporary Chrome profile,
 synthetic tokens and intercepted GitHub responses, and never write to GitHub.
 They cover failed sign-in, profile updates, restore, cancellation, storage failure,
-cross-tab sign-out, code masking, local/GitHub refresh, refresh failure/recovery
+cross-tab sign-out, retained-token reuse/forgetting, signed-out reload, code masking, local/GitHub refresh, refresh failure/recovery
 and phone/desktop layouts.
 
 The staged plan and version 1 data contract are maintained in

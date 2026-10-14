@@ -16,10 +16,11 @@
     ["signInButton", "profileButton", "signOutButton", "authStatus", "authError",
       "profileDialog", "profileForm", "profileTitle", "profileDescription", "profileUser",
       "profileToken", "profileAdmin", "reloadUsersButton", "profileStatus", "profileError",
-      "saveProfileButton", "cancelProfileButton"].forEach(function (id) { el[id] = document.getElementById(id); });
+      "saveProfileButton", "cancelProfileButton", "forgetTokenButton", "tokenHelp"].forEach(function (id) { el[id] = document.getElementById(id); });
     el.signInButton.addEventListener("click", openProfile);
     el.profileButton.addEventListener("click", openProfile);
-    el.signOutButton.addEventListener("click", signOut);
+    el.signOutButton.addEventListener("click", function () { signOut(); });
+    el.forgetTokenButton.addEventListener("click", function () { signOut(true); });
     el.profileForm.addEventListener("submit", submitProfile);
     el.cancelProfileButton.addEventListener("click", function () { el.profileDialog.close(); });
     el.profileDialog.addEventListener("close", function () {
@@ -103,7 +104,10 @@
       });
       if (response.status === 401) throw new Error("The token is invalid or expired. Check it and try again.");
       if (response.status === 403 || response.status === 429) throw new Error("GitHub denied the check or is rate limiting requests. Check token access or try again later.");
-      if (!response.ok) throw new Error("Could not access the Early Birds repository. Check token access and try again.");
+      if (response.status === 404) throw new Error("GitHub returned 404 for " + config.github.owner + "/" + config.github.repo +
+        ". Check the repository address. If it is private, select early-birds under the token's Repository access and confirm the resource owner is mikeertl.");
+      if (response.status >= 500) throw new Error("GitHub is temporarily unavailable (HTTP " + response.status + "). Try signing in again shortly.");
+      if (!response.ok) throw new Error("Could not check the Early Birds repository (HTTP " + response.status + "). Check token access and try again.");
       // A read check validates the credential, not Contents write permission.
       // GitHub will enforce that permission when shared-data writes are added.
     } catch (error) {
@@ -134,8 +138,12 @@
     el.profileUser.value = session ? session.userId : "";
     el.profileAdmin.checked = Boolean(session && session.isAdmin);
     el.profileToken.value = "";
-    el.profileToken.required = !session;
-    el.profileToken.placeholder = session ? "Leave blank to keep your current token" : "Paste your GitHub token";
+    var remembered = session ? session.token : savedToken();
+    el.profileToken.required = !remembered;
+    el.profileToken.placeholder = remembered ? "Leave blank to use your saved token" : "Paste your GitHub token";
+    el.tokenHelp.textContent = remembered ? "A token is saved in this browser. Leave this field blank to reuse it, or paste a replacement." :
+      "Your token is saved only in this browser and kept when you sign out. Use Forget saved token to remove it.";
+    el.forgetTokenButton.hidden = !remembered;
     el.profileStatus.textContent = "";
     // Preserve a player-loading error and its retry control.
     if (el.reloadUsersButton.hidden) el.profileError.textContent = "";
@@ -146,7 +154,7 @@
     event.preventDefault();
     if (busy) return;
     var userId = el.profileUser.value;
-    var token = el.profileToken.value.trim() || (session ? session.token : "");
+    var token = el.profileToken.value.trim() || (session ? session.token : savedToken());
     var isAdmin = el.profileAdmin.checked;
     if (!activeUser(userId) || !token) {
       el.profileError.textContent = "Choose an active player and paste a GitHub token.";
@@ -178,9 +186,15 @@
     }
   }
 
-  function clearStoredSession() {
+  function savedToken() {
+    try { return window.localStorage.getItem(keys.token) || ""; } catch (_) { return ""; }
+  }
+
+  function clearStoredSession(includeToken) {
     var success = true;
-    [keys.token, keys.userId, keys.adminMode].forEach(function (key) {
+    var remove = [keys.userId, keys.adminMode];
+    if (includeToken !== false) remove.push(keys.token);
+    remove.forEach(function (key) {
       try { window.localStorage.removeItem(key); } catch (_) { success = false; }
     });
     return success;
@@ -208,12 +222,12 @@
     try {
       var token = window.localStorage.getItem(keys.token);
       var userId = window.localStorage.getItem(keys.userId);
-      if (!token || !activeUser(userId)) { clearStoredSession(); return; }
+      if (!token || !activeUser(userId)) { clearStoredSession(false); return; }
       var isAdmin = window.localStorage.getItem(keys.adminMode) === "true";
       el.authStatus.textContent = "Checking saved sign-in…";
       await verifyToken(token);
       if (attempt !== generation) return;
-      if (!activeUser(userId)) { clearStoredSession(); return; }
+      if (!activeUser(userId)) { clearStoredSession(false); return; }
       session = { token: token, userId: userId, isAdmin: isAdmin };
       renderSession();
       el.authStatus.textContent = "";
@@ -225,14 +239,15 @@
     }
   }
 
-  function signOut() {
+  function signOut(forgetToken) {
     cancelVerification();
     session = null;
-    var cleared = clearStoredSession();
+    var cleared = clearStoredSession(Boolean(forgetToken));
     el.profileToken.value = "";
     if (el.profileDialog.open) el.profileDialog.close();
     renderSession();
-    el.authStatus.textContent = "Signed out.";
+    el.authStatus.textContent = forgetToken && cleared ? "Signed out. Saved token forgotten." :
+      (!forgetToken && savedToken() ? "Signed out. Your saved token is kept for next time." : "Signed out.");
     el.authError.textContent = cleared ? "" : "Could not clear saved sign-in. Clear this site's browser data before leaving a shared device.";
     el.signInButton.focus();
   }
