@@ -7,13 +7,18 @@ storage keys.
 
 ## Run locally
 
-Serve the repository root with a static file server, for example:
+With Node.js installed, run:
 
 ```sh
-python3 -m http.server 8000
+./go.sh
 ```
 
-Open `http://localhost:8000`. There is no dependency installation or build step.
+Open the localhost URL printed by the launcher. It starts at port 8000 and tries
+up to 8020 if ports are busy. Refresh after edits to see progress; press Ctrl+C
+in the terminal to stop. To require a specific port, run `./go.sh 8001`;
+an explicitly selected port will report an error if already in use.
+The launcher works from any working directory and binds only to the local machine.
+There is no dependency installation or build step.
 
 ## Files
 
