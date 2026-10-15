@@ -29,6 +29,7 @@ There is no dependency installation or build step.
 - `auth.js`: sign-in, browser sessions, profile and access helpers;
 - `booking.js`: Add Court form, quick dates, draft validation and save/retry integration;
 - `bagels.js`: singles/doubles reporting, Admin historical entry, recorded-set review, save/retry drafts and the public result list;
+- `users.js`: Admin player creation, rename, deactivation/reactivation and directory save recovery;
 - `games.js`: ordered game cards, booking details and labelled player lists;
 - `model.js`: version 1 validation and replayable data actions;
 - `store.js`: shared reads, queued saves and conflict reconciliation;
@@ -65,7 +66,8 @@ Games shows booking cards, Bagels shows saved result cards, and Admin provides c
 Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
 cards. Tasks 3.3–3.4 add participation controls and action refresh; 3.5 adds court
 editing and deletion. Tasks 4.1–4.3 add Bagel eligibility, reporting and the result
-list. Admin player management is 4.5. Branding artwork and
+list. Task 4.4 adds Admin player-directory management; assigning other players
+to courts remains 4.5. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -108,6 +110,32 @@ are resolved from stable user IDs. Names are inserted as text, never HTML. Playe
 lists sit to the right on wider screens and beneath booking details on phones.
 Previous London dates are hidden in Games and Admin; today's finished games stay
 visible until midnight.
+
+## Managing players (task 4.4)
+
+In **Admin → Players**, use **+ Add player**, **Rename**, **Deactivate** or
+**Reactivate**. Names are trimmed and must be nonempty; duplicate names are
+rejected ignoring case and surrounding spaces, including inactive players. Use
+reactivation for a returning player rather than creating a new identity.
+
+Each player keeps an opaque stable ID. Renaming updates current game names;
+recorded bagels retain their saved names. Deactivation removes the player from
+sign-in and new-booker choices without removing existing court ownership or
+green/reserve membership. Inactive players remain visible in Admin and can be
+reactivated under the same ID. Historical bagel entry can still select them for
+past results. No hard-delete control or action is provided.
+
+Any active player can select **Show Admin tab** when signing in, matching the
+agreed trusted-group model; GitHub still requires a write-capable token. Saving
+self-deactivation signs that player out. Another active player can enable Admin
+to reactivate them. Even a lost acknowledgement of self-deactivation can be
+confirmed as a no-op; inactive players cannot make further directory changes.
+
+Forms retain failed inputs when closed/reopened in the same tab, and one ID is
+reused for creation retries. Unconfirmed saves lock inputs until the original
+change is reconciled. Independent field edits merge; same-field conflicts keep
+typed values and offer **Load latest details** for explicit review/replacement.
+Controls disappear when Admin mode ends. Court player assignments remain 4.5.
 
 ## Reporting bagels (tasks 4.1–4.2)
 

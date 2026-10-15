@@ -770,6 +770,108 @@ async function main() {
     await evaluate(`(async()=>{window.fixtureState.bagels=[];await window.EarlyBirdsStore.refresh();})()`);
     assert(await evaluate(`document.getElementById('bagelsPanel').dataset.state==='empty' && document.getElementById('bagelsList').hidden && document.getElementById('bagelsList').children.length===0 && document.querySelector('#bagelsPanel [data-state-title]').textContent==='No bagels to show yet'`));
     console.log('Empty Bagels refresh removes old cards and shows the labelled empty state');
+    assert(await evaluate(`document.getElementById('adminPlayersList').children.length===0 && document.getElementById('addPlayerButton').hidden`));
+    await evaluate(`(async()=>{
+      document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';document.getElementById('profileAdmin').checked=true;
+      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,150));document.getElementById('adminTabButton').click();
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsAuth.getSession().isAdmin && document.getElementById('adminPlayersList').children.length===9 && !document.getElementById('addPlayerButton').hidden`));
+    console.log('Initial active player can choose Admin and manage active/inactive users; visitors have no controls');
+    const usersBefore=await evaluate('window.EarlyBirdsStore.getSnapshot().users.users.length');
+    await evaluate(`(async()=>{
+      document.getElementById('addPlayerButton').click();document.getElementById('playerName').value='  Test Player 鳥  ';
+      document.getElementById('playerForm').requestSubmit();document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    const playerId=await evaluate(`window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.name==='Test Player 鳥').id`);
+    assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().users.users.length'),usersBefore+1);
+    assert(await evaluate(`!document.getElementById('playerDialog').open && [...document.getElementById('profileUser').options].some(o=>o.value===${JSON.stringify(playerId)})`));
+    console.log('Admin creation trims Unicode name, generates one stable player and updates sign-in choices');
+    await evaluate(`(async()=>{
+      const state=JSON.parse(window.mockFiles['data/current.json']);state.courts=[{id:'management-court',date:'2026-10-16',time:'13:00',durationMinutes:60,courtNumber:1,code:'012345',bookedBy:${JSON.stringify(playerId)},green:[${JSON.stringify(playerId)}],reserved:['ellen'],createdAt:'2026-10-16T10:00:00Z',createdBy:'mike-ertl'}];
+      state.bagels=[{id:'management-history',sourceCourtId:'management-court',date:'2026-10-15',winners:[{userId:${JSON.stringify(playerId)},name:'Test Player 鳥'}],losers:[{userId:'akiko',name:'Akiko historical'}],createdAt:'2026-10-15T10:00:00Z',createdBy:'mike-ertl'}];
+      window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();
+      document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="edit"]').click();document.getElementById('playerName').value='Renamed Player 鳥';
+      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts[0].bookedBy===${JSON.stringify(playerId)} && document.querySelector('#gamesList .game-booker').textContent==='Renamed Player 鳥' && document.getElementById('bagelsList').textContent.includes('Test Player 鳥')`));
+    console.log('Rename updates current booking names while preserving stable references and recorded bagel names');
+    await evaluate(`(async()=>{
+      document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="toggle"]').click();document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('adminAddCourtButton').click();
+    })()`);
+    assert(await evaluate(`!window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id===${JSON.stringify(playerId)}).active && ![...document.getElementById('profileUser').options].some(o=>o.value===${JSON.stringify(playerId)}) && ![...document.getElementById('courtBookerSelect').options].some(o=>o.value===${JSON.stringify(playerId)}) && window.EarlyBirdsStore.getSnapshot().state.courts[0].green.includes(${JSON.stringify(playerId)})`));
+    console.log('Deactivation excludes new sign-in/booker choices while retaining existing participation');
+    await evaluate(`(async()=>{
+      document.getElementById('closeCourtButton').click();document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="toggle"]').click();
+      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id===${JSON.stringify(playerId)}).active && [...document.getElementById('profileUser').options].some(o=>o.value===${JSON.stringify(playerId)})`));
+    console.log('Reactivation restores eligibility under the same player ID');
+    const playerWrites=await evaluate('window.mockWriteAttempts');
+    await evaluate(`(async()=>{
+      document.getElementById('addPlayerButton').click();document.getElementById('playerName').value=' renamed player 鳥 ';document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    assert(await evaluate(`document.getElementById('playerError').textContent.includes('already used')`));
+    assert.equal(await evaluate('window.mockWriteAttempts'),playerWrites);
+    await evaluate(`(async()=>{
+      document.getElementById('playerName').value='Retry Player';window.denySave=true;document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    const retryPlayerId=await evaluate('window.EarlyBirdsStore.getRecovery().action.user.id');
+    await evaluate(`document.getElementById('closePlayerButton').click();document.getElementById('addPlayerButton').click()`);
+    assert(await evaluate(`document.getElementById('playerName').value==='Retry Player' && document.getElementById('savePlayerButton').textContent==='Retry save'`));
+    await evaluate(`(async()=>{window.denySave=false;document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));})()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().users.users.filter(u=>u.id===${JSON.stringify(retryPlayerId)}).length===1`));
+    console.log('Duplicate names are rejected; failed creation keeps its draft and retries one stable ID');
+    await evaluate(`(async()=>{
+      document.querySelector('#adminPlayersList [data-player-id="${retryPlayerId}"] [data-player-action="edit"]').click();document.getElementById('playerName').value='Retry Player renamed';
+      window.loseAckOnce=true;document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && document.getElementById('playerFields').disabled && !document.getElementById('savePlayerButton').disabled && document.getElementById('addPlayerButton').disabled`));
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`!document.getElementById('playerDialog').open && window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id===${JSON.stringify(retryPlayerId)}).name==='Retry Player renamed'`));
+    console.log('Unknown directory acknowledgement locks inputs and global retry confirms the rename');
+    await evaluate(`(async()=>{
+      document.querySelector('#adminPlayersList [data-player-id="${retryPlayerId}"] [data-player-action="edit"]').click();document.getElementById('playerName').value='My draft';
+      const users=JSON.parse(window.mockFiles['data/users.json']);users.users.find(u=>u.id===${JSON.stringify(retryPlayerId)}).name='Other Admin rename';window.mockFiles['data/users.json']=JSON.stringify(users);
+      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    assert(await evaluate(`document.getElementById('playerName').value==='My draft' && document.getElementById('playerError').textContent.includes('edited by someone else') && !document.getElementById('reloadPlayerButton').hidden`));
+    await evaluate(`(async()=>{document.getElementById('reloadPlayerButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`document.getElementById('playerName').value==='Other Admin rename' && document.getElementById('playerError').textContent===''`));
+    for(const width of [320,390,768,1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<540});
+      assert(await evaluate('document.documentElement.scrollWidth <= window.innerWidth && document.getElementById("playerDialog").scrollWidth <= document.getElementById("playerDialog").clientWidth'));
+    }
+    console.log('Conflicting rename keeps input for explicit review; player management/dialog fit phone and desktop');
+    await evaluate(`document.getElementById('closePlayerButton').click()`);
+    if(process.env.TEST_USERS_SCREENSHOT_PATH) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:1000,deviceScaleFactor:1,mobile:true});
+      const shot=await cdp('Page.captureScreenshot',{format:'png'});await fs.writeFile(process.env.TEST_USERS_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+    }
+    await evaluate(`(async()=>{
+      document.querySelector('#adminPlayersList [data-player-id="mike-ertl"] [data-player-action="toggle"]').click();
+    })()`);
+    assert(await evaluate(`document.getElementById('playerDescription').textContent.includes('sign you out')`));
+    await evaluate(`(async()=>{
+      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,200));
+      // Sign-out uses local preview files on localhost. Mirror the simulated
+      // shared directory there so this check represents a published read too.
+      window.fixtureUsers=JSON.parse(window.mockFiles['data/users.json']);window.fixtureState=JSON.parse(window.mockFiles['data/current.json']);
+      await window.EarlyBirdsStore.refresh();
+    })()`);
+    assert(await evaluate(`!window.EarlyBirdsAuth.getSession() && document.getElementById('adminTabButton').hidden && document.getElementById('adminPlayersList').children.length===0 && ![...document.getElementById('profileUser').options].some(o=>o.value==='mike-ertl')`));
+    await evaluate(`(async()=>{
+      document.getElementById('signInButton').click();document.getElementById('profileUser').value='akiko';document.getElementById('profileAdmin').checked=true;
+      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,150));document.getElementById('adminTabButton').click();
+      document.querySelector('#adminPlayersList [data-player-id="mike-ertl"] [data-player-action="toggle"]').click();document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsAuth.getSession().userId==='akiko' && window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id==='mike-ertl').active`));
+    console.log('Self-deactivation signs out; another active player chooses Admin and reactivates the same account');
+    await evaluate(`(async()=>{
+      document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    assert(await evaluate(`document.getElementById('adminPlayersList').children.length===0 && document.getElementById('addPlayerButton').hidden`));
+    console.log('Leaving Admin clears all user-management controls');
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');
   } finally {

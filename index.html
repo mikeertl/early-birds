@@ -14,6 +14,7 @@
     <script src="auth.js" defer></script>
     <script src="booking.js" defer></script>
     <script src="bagels.js" defer></script>
+    <script src="users.js" defer></script>
     <script src="games.js" defer></script>
     <script src="app.js" defer></script>
   </head>
@@ -84,6 +85,13 @@
           </div>
           <div id="adminContent" class="content-list" data-panel-content hidden>
             <p id="adminPlayerCount"></p>
+            <section aria-labelledby="adminPlayersTitle">
+              <h3 id="adminPlayersTitle">Players</h3>
+              <p class="field-help">Rename players or change their availability. Bookings and recorded bagel names are kept.</p>
+              <button id="addPlayerButton" class="button secondary" type="button" hidden>+ Add player</button>
+              <ul id="adminPlayersList" class="admin-players-list"></ul>
+              <p id="adminPlayersEmpty" hidden>No players to manage.</p>
+            </section>
             <button id="historicalBagelButton" class="button secondary" type="button" data-bagel-court="" data-bagel-admin="true" hidden>Add historical bagel</button>
             <h3>Court management</h3>
             <button id="adminAddCourtButton" class="button" type="button" hidden>+ Add Court</button>
@@ -111,6 +119,23 @@
         </section>
         <noscript><p>Please enable JavaScript to use Early Birds Tennis.</p></noscript>
       </main>
+      <dialog id="playerDialog" aria-labelledby="playerTitle" aria-describedby="playerDescription">
+        <form id="playerForm">
+          <h2 id="playerTitle">Add player</h2>
+          <p id="playerDescription"></p>
+          <fieldset id="playerFields" class="court-fields">
+            <label for="playerName">Name</label><input id="playerName" type="text" required autocomplete="off" />
+            <label class="check-label"><input id="playerActive" type="checkbox" checked /> Active player</label>
+          </fieldset>
+          <p id="playerStatus" class="status-line" role="status" aria-atomic="true"></p>
+          <p id="playerError" class="error-line" role="alert" aria-atomic="true"></p>
+          <div class="form-actions">
+            <button id="savePlayerButton" class="button" type="submit">Save player</button>
+            <button id="reloadPlayerButton" class="button secondary" type="button" hidden>Load latest details</button>
+            <button id="closePlayerButton" class="button secondary" type="button">Close</button>
+          </div>
+        </form>
+      </dialog>
       <dialog id="bagelDialog" aria-labelledby="bagelTitle" aria-describedby="bagelContext">
         <form id="bagelForm">
           <h2 id="bagelTitle">Record a bagel</h2>

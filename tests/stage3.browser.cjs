@@ -44,7 +44,7 @@ async function main() {
       }
       if(Object.hasOwn(files,pathname.slice(1))) {json(files[pathname.slice(1)]);return;}
       const file=pathname==='/'?'index.html':pathname.slice(1);
-      if(!['index.html','config.js','model.js','store.js','auth.js','booking.js','bagels.js','games.js','app.js','styles.css','manifest.webmanifest'].includes(file)) {response.writeHead(404).end();return;}
+      if(!['index.html','config.js','model.js','store.js','auth.js','booking.js','bagels.js','users.js','games.js','app.js','styles.css','manifest.webmanifest'].includes(file)) {response.writeHead(404).end();return;}
       const content=await fs.readFile(path.join(root,file));
       response.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.webmanifest')?'application/manifest+json':'text/html'}).end(content);
     } catch {if(!response.writableEnded) json({},500);}

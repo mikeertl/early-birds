@@ -517,3 +517,42 @@ test('Historical doubles retain registered inactive names and survive source cle
   assert.equal(saved.length,1);assert.equal(saved[0].losers[1].name,'Ellen 鳥');assert.equal(saved[0].sourceCourtId,null);
   await assert.rejects(store.mutate({type:'bagel.add',bagel:{...bagel,id:'future',date:'2099-10-15'}}),/future/);
 });
+test('Admin directory creation enforces names and roles and reconciles one stable ID', async () => {
+  const remote=server(), admin=client(remote,'mike-ertl',true).store, ordinary=client(remote).store;
+  const action={type:'user.add',user:{id:'player-opaque',name:'New player 鳥',active:true}};
+  await assert.rejects(ordinary.mutate(action),/Admin/);
+  await assert.rejects(admin.mutate({...action,user:{...action.user,name:'  '}}),/name/);
+  await assert.rejects(admin.mutate({...action,user:{...action.user,name:' AKIKO '}}),/already used/);
+  remote.loseAck=true;await admin.mutate(action);await admin.mutate(action);
+  assert.equal(remote.puts,1);assert.equal(remote.documents['data/users.json'].users.filter(u=>u.id==='player-opaque').length,1);
+  await admin.mutate({type:'user.patch',userId:'player-opaque',expected:{active:true},changes:{active:false}});
+  await assert.rejects(admin.mutate({...action,user:{...action.user,id:'another-id'}}),/already used/);
+  await assert.rejects(admin.mutate({type:'user.patch',userId:'player-opaque',expected:{name:action.user.name},changes:{name:'Mike Ertl'}}),/already used/);
+  await assert.rejects(admin.mutate({type:'user.remove',userId:'player-opaque'}),/Unknown/);
+});
+test('Concurrent rename/deactivation preserves references and snapshots; same-field conflict requires review', async () => {
+  const state=expiryFixture();state.courts=state.courts.filter(c=>c.id!=='old');
+  state.courts[0].reserved=['arda'];state.bagels[0].winners=[{userId:'arda',name:'Original Arda'}];
+  const remote=server({'data/current.json':state}), a=client(remote,'mike-ertl',true).store, b=client(remote,'akiko',true).store;
+  const before=clone(remote.documents['data/current.json']);
+  await Promise.all([
+    a.mutate({type:'user.patch',userId:'arda',expected:{name:'Arda'},changes:{name:'Arda renamed'}}),
+    b.mutate({type:'user.patch',userId:'arda',expected:{active:true},changes:{active:false}}),
+  ]);
+  const user=remote.documents['data/users.json'].users.find(u=>u.id==='arda');
+  assert.equal(user.name,'Arda renamed');assert.equal(user.active,false);assert.deepEqual(remote.documents['data/current.json'],before);
+  await b.mutate({type:'user.patch',userId:'arda',expected:{active:false},changes:{active:true}});
+  await assert.rejects(b.mutate({type:'user.patch',userId:'arda',expected:{name:'Arda'},changes:{name:'Stale rename'}}),/edited by someone else/);
+  assert.equal(remote.documents['data/users.json'].users.find(u=>u.id==='arda').id,'arda');
+});
+test('Lost self-deactivation acknowledgement confirms safely; inactive Admin cannot change or reactivate users', async () => {
+  const remote=server(), mike=client(remote,'mike-ertl',true).store, akiko=client(remote,'akiko',true).store;
+  remote.loseAck=true;
+  await mike.mutate({type:'user.patch',userId:'mike-ertl',expected:{active:true},changes:{active:false}});
+  assert.equal(remote.puts,1);assert.equal(mike.getRecovery(),null);
+  await assert.rejects(mike.mutate({type:'user.patch',userId:'mike-ertl',expected:{active:false},changes:{active:true}}),/active Admin/);
+  await assert.rejects(mike.mutate({type:'user.patch',userId:'akiko',expected:{name:'Akiko'},changes:{name:'Not permitted'}}),/active Admin/);
+  assert.equal(remote.puts,1);
+  await akiko.mutate({type:'user.patch',userId:'mike-ertl',expected:{active:false},changes:{active:true}});
+  assert.equal(remote.documents['data/users.json'].users.find(u=>u.id==='mike-ertl').active,true);
+});

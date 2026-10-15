@@ -41,6 +41,7 @@
     });
     window.EarlyBirdsStore = store;
     var bagels = window.EarlyBirdsBagels.init({ auth: auth, store: store, model: model, config: config, ui: window.EarlyBirdsUI });
+    var users = window.EarlyBirdsUsers.init({ auth: auth, store: store });
     var games = window.EarlyBirdsGames.init({ auth: auth, store: store, model: model, config: config, bagels: bagels, ui: window.EarlyBirdsUI });
     store.subscribe(function (event) {
       var phase = event.status.phase;
@@ -61,6 +62,7 @@
         auth.setUsers(event.data.users);
         games.render(event.data);
         bagels.renderList(event.data);
+        users.render(event.data);
       } else if (!event.data) {
         Object.keys(emptyMessages).forEach(function (name) { setPanelState(name, phase === "error" ? "error" : "loading", event.status.message); });
       }

@@ -189,18 +189,30 @@
     }
     function applyUsers(original, action, actor) {
       var next = validateUsers(original);
+      var actingUser = next.users.find(function (user) { return user.id === actor.userId; });
+      // A lost acknowledgement of self-deactivation is safe to confirm as a
+      // no-op. An inactive player still cannot make any directory change.
+      if (actor.isAdmin && actingUser && !actingUser.active && action.type === "user.patch" && action.userId === actor.userId && action.changes && action.changes.active === false) {
+        fields(action.changes, ["name", "active"]);
+        if (Object.keys(action.changes).every(function (key) { return action.expected && Object.hasOwn(action.expected, key) && actingUser[key] === action.changes[key]; })) return next;
+      }
       check(actor.isAdmin && next.users.some(function (user) { return user.id === actor.userId && user.active; }), "An active Admin is required.");
+      function uniqueName(name, id) {
+        check(text(name), "Enter a player name.");
+        check(!next.users.some(function (user) { return user.id !== id && user.name.trim().toLowerCase() === name.trim().toLowerCase(); }), "That name is already used. Rename or reactivate the existing player instead.");
+      }
       if (action.type === "user.add") {
         fields(action.user, ["id", "name", "active"]);
         var existing = next.users.find(function (user) { return user.id === action.user.id; });
         if (existing) check(JSON.stringify(existing) === JSON.stringify(action.user), "This player ID already exists.");
-        else next.users.push(copy(action.user));
+        else { uniqueName(action.user.name, action.user.id); next.users.push(copy(action.user)); }
       } else if (action.type === "user.patch") {
         var user = next.users.find(function (item) { return item.id === action.userId; });
         check(user, "Unknown player."); fields(action.changes, ["name", "active"]);
         Object.keys(action.changes).forEach(function (key) {
           check(action.expected && Object.hasOwn(action.expected, key) &&
             (user[key] === action.expected[key] || user[key] === action.changes[key]), "This player was edited by someone else. Refresh and review your change.");
+          if (key === "name" && user.name !== action.changes.name) uniqueName(action.changes.name, user.id);
           user[key] = action.changes[key];
         });
       } else throw new Error("Unknown player-data action.");

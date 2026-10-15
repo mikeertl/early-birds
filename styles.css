@@ -34,6 +34,13 @@
   min-width: 0;
 }
 
+.admin-players-list { list-style: none; padding: 0; display: grid; gap: 10px; }
+.admin-player { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.admin-player-details { min-width: 0; overflow-wrap: anywhere; flex: 1 1 160px; }
+.admin-player-name { display: block; font-weight: 700; }
+.admin-player-state { color: var(--muted); font-size: 14px; }
+.admin-player-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 body {
   margin: 0;
   background: var(--bg);
