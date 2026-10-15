@@ -62,8 +62,8 @@ a player session; it is checked with GitHub again when you next sign in.
 Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
 Games shows booking cards or an empty state; the other tabs show loaded counts.
 Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
-cards. Participation buttons, bagel entry and Admin editing controls are subsequent
-tasks. Branding artwork and
+cards. Task 3.3 adds participation buttons; bagel entry and Admin editing controls
+are subsequent tasks. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -96,7 +96,28 @@ Playing names appear in green and reserves in yellow, with text labels and count
 for both groups. Current names, including inactive players in existing bookings,
 are resolved from stable user IDs. Names are inserted as text, never HTML. Player
 lists sit to the right on wider screens and beneath booking details on phones.
-Participation controls are task 3.3, and expiry/cleanup is task 3.6.
+Expiry/cleanup is task 3.6.
+
+## Joining and reserving
+
+Each card offers actions for your own place. **Add me** joins green when a place
+is available, or yellow/reserved when four players are already green. **Reserve**
+joins or moves you to yellow even when a green place is free. **Remove me** leaves
+either list. Green players see Remove me/Reserve; reserves see Remove me and an
+Add me button when the court has room. Reserves are never promoted automatically.
+
+A player cannot hold green places in simultaneous games. Add me is disabled when
+it would create that overlap, with an explanation; overlapping reserves are
+allowed. The store revalidates against fresh shared data, so another player's
+concurrent change cannot create a fifth green player or duplicate membership.
+Admin assignments use the same rules in the model; their management UI is 4.5.
+
+Buttons are disabled during saves to prevent duplicate clicks. Membership colours
+change after confirmation, and each card reports its outcome. Failed changes keep
+the existing lists and offer **Retry last change**. Uncertain saves block new
+participation changes until the original action is reconciled. Visitors clicking
+an action are asked to sign in and no write is attempted. These buttons do not
+change other players' places.
 
 Task 2.5 adds separate save outcomes and recovery: a pending change is shown as
 saving, a confirmed change as saved, a rejected change as not saved, and a lost
@@ -242,6 +263,10 @@ form checks simulate GitHub responses and do not create live bookings.
 Card checks cover ordering, simultaneous bookings, calendar/time formatting,
 player/reserve labels, empty player lists, literal name rendering, inactive names,
 visitor/sign-out code masking and responsive placement at 320/390/768/1280px.
+Participation checks cover green/reserve/removal transitions, full-court overflow,
+duplicate clicks, overlapping games, no automatic promotion, failed saves and
+uncertain-save reconciliation. Model tests also check Admin capacity/overlap rules
+and block ordinary players from changing another player.
 
 ## Live foundation verification (task 2.6)
 

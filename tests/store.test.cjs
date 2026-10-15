@@ -270,3 +270,25 @@ test('court creation rejects invalid or past details and booking for another pla
   }
   assert.equal(remote.puts,0);
 });
+test('participation transitions preserve disjoint membership and never automatically promote reserves', async () => {
+  const remote=server();remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','akiko','arda','ellen'],reserved:['dimitar']})];
+  const mike=client(remote).store,dimitar=client(remote,'dimitar').store;
+  await mike.mutate({type:'participation.set',courtId:'a',status:'reserved'});
+  let current=remote.documents['data/current.json'].courts[0];
+  assert.equal(current.green.length,3);assert.deepEqual(current.reserved,['dimitar','mike-ertl']);
+  await dimitar.mutate({type:'participation.set',courtId:'a',status:'green'});
+  current=remote.documents['data/current.json'].courts[0];assert.equal(current.green.length,4);assert(!current.reserved.includes('dimitar'));
+  await mike.mutate({type:'participation.set',courtId:'a',status:'none'});
+  assert(!remote.documents['data/current.json'].courts[0].reserved.includes('mike-ertl'));
+});
+test('Admin assignments enforce the same capacity and overlap rules; ordinary players cannot change others', async () => {
+  const remote=server();remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','arda','ellen','ivan']}),court('b',{courtNumber:2,bookedBy:'akiko',green:['akiko']})];
+  const ordinary=client(remote).store,admin=client(remote,'mike-ertl',true).store;
+  await assert.rejects(ordinary.mutate({type:'participation.set',courtId:'a',userId:'dimitar',status:'green'}),/Admin/);
+  await admin.mutate({type:'participation.set',courtId:'a',userId:'dimitar',status:'green'});
+  assert.equal(remote.documents['data/current.json'].courts[0].green.length,4);
+  assert(remote.documents['data/current.json'].courts[0].reserved.includes('dimitar'));
+  await assert.rejects(admin.mutate({type:'participation.set',courtId:'b',userId:'ivan',status:'green'}),/overlapping/);
+  await admin.mutate({type:'participation.set',courtId:'b',userId:'ivan',status:'reserved'});
+  assert(remote.documents['data/current.json'].courts[1].reserved.includes('ivan'));
+});

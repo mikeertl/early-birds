@@ -256,6 +256,17 @@ h2 {
   font-size: 14px;
 }
 
+.game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.game-actions .button:disabled {
+  cursor: default;
+}
+
 @media (max-width: 620px) {
   .game-card {
     grid-template-columns: minmax(0, 1fr);
