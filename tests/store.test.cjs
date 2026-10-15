@@ -250,3 +250,23 @@ test('acknowledged save after sign-out is reported as saved, not failed or repla
   assert.equal(events.at(-1).save.outcome,'saved'); assert(events.at(-1).save.message.includes('before sign-in changed'));
   assert.equal(app.store.getRecovery(),null); assert.equal(remote.puts,1);
 });
+test('new court enrols its booker once and preserves independent simultaneous courts', async () => {
+  const remote=server(); const mike=client(remote).store,akiko=client(remote,'akiko').store;
+  const intent={type:'court.add',court:{id:'new-a',date:'2099-10-15',time:'08:00',courtNumber:1,code:'012345',bookedBy:'mike-ertl'}};
+  await mike.mutate(intent);await mike.mutate(intent);
+  await akiko.mutate({type:'court.add',court:{...intent.court,id:'new-b',courtNumber:2,bookedBy:'akiko'}});
+  const courts=remote.documents['data/current.json'].courts;
+  assert.equal(courts.length,2);assert.deepEqual(courts[0].green,['mike-ertl']);assert.deepEqual(courts[1].green,['akiko']);
+  assert.equal(courts[0].durationMinutes,60);assert.equal(courts[0].code,'012345');assert.equal(remote.puts,2);
+  await assert.rejects(mike.mutate({type:'court.add',court:{...intent.court,id:'new-c',courtNumber:3}}),/overlapping/);
+  await assert.rejects(akiko.mutate({type:'court.add',court:{...intent.court,id:'new-d',bookedBy:'akiko'}}),/already booked/);
+  assert.equal(remote.puts,2);
+});
+test('court creation rejects invalid or past details and booking for another player', async () => {
+  const remote=server();const {store}=client(remote);
+  const valid={id:'invalid-court',date:'2099-10-15',time:'08:00',courtNumber:1,code:'012345',bookedBy:'mike-ertl'};
+  for(const changes of [{date:'2020-01-01'},{time:'06:00'},{time:'08:30'},{courtNumber:7},{code:'12345'},{bookedBy:'akiko'}]) {
+    await assert.rejects(store.mutate({type:'court.add',court:{...valid,...changes}}));
+  }
+  assert.equal(remote.puts,0);
+});

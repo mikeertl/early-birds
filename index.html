@@ -12,6 +12,7 @@
     <script src="model.js" defer></script>
     <script src="store.js" defer></script>
     <script src="auth.js" defer></script>
+    <script src="booking.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body data-auth="signed-out" data-admin="false" data-tab="games">
@@ -64,6 +65,7 @@
           <div id="gamesList" class="content-list" data-panel-content hidden></div>
           <p class="status-line" data-panel-status role="status" aria-atomic="true"></p>
           <p class="error-line" data-panel-error role="alert" aria-atomic="true"></p>
+          <div class="form-actions"><button id="addCourtButton" class="button" type="button">+ Add Court</button></div>
         </section>
 
         <section id="adminPanel" class="panel tab-panel" role="tabpanel"
@@ -99,6 +101,41 @@
         </section>
         <noscript><p>Please enable JavaScript to use Early Birds Tennis.</p></noscript>
       </main>
+      <dialog id="courtDialog" aria-labelledby="courtTitle" aria-describedby="courtDescription">
+        <form id="courtForm">
+          <h2 id="courtTitle">Add Court</h2>
+          <p id="courtDescription">Add a court you have booked. You will automatically join as a player.</p>
+          <fieldset id="courtFields" class="court-fields">
+            <label for="courtBooker">Booked by</label>
+            <input id="courtBooker" type="text" readonly />
+            <fieldset class="quick-dates">
+              <legend>Choose a day</legend>
+              <div class="week-buttons">
+                <button id="thisWeekButton" class="button secondary" type="button" aria-pressed="true">This week</button>
+                <button id="nextWeekButton" class="button secondary" type="button" aria-pressed="false">Next week</button>
+              </div>
+              <div id="courtQuickDates" class="date-buttons"></div>
+            </fieldset>
+            <label for="courtDate">Date</label>
+            <input id="courtDate" type="date" required aria-describedby="courtDateHelp" />
+            <p id="courtDateHelp" class="field-help">Or choose any future date using the date picker.</p>
+            <div class="court-form-grid">
+              <div><label for="courtTime">Start time</label><select id="courtTime" required></select></div>
+              <div><label for="courtNumber">Court</label><select id="courtNumber" required><option value="">Choose court</option></select></div>
+            </div>
+            <p class="field-help">One hour. All dates and times are Europe/London.</p>
+            <label for="courtCode">Access code</label>
+            <div class="code-input"><span aria-hidden="true">*</span><input id="courtCode" type="text" inputmode="numeric" pattern="[0-9]{6}" required autocomplete="off" aria-describedby="courtCodeHelp" /></div>
+            <p id="courtCodeHelp" class="field-help">Enter six digits. The leading * is added automatically.</p>
+          </fieldset>
+          <p id="courtStatus" class="status-line" role="status" aria-atomic="true"></p>
+          <p id="courtError" class="error-line" role="alert" aria-atomic="true"></p>
+          <div class="form-actions">
+            <button id="saveCourtButton" class="button" type="submit">Save court</button>
+            <button id="closeCourtButton" class="button secondary" type="button">Close</button>
+          </div>
+        </form>
+      </dialog>
       <dialog id="profileDialog" aria-labelledby="profileTitle" aria-describedby="profileDescription">
         <form id="profileForm">
           <h2 id="profileTitle">Sign in</h2>

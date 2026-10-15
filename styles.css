@@ -258,6 +258,70 @@ select {
   margin-top: 20px;
 }
 
+.court-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.court-fields label {
+  display: block;
+  margin: 16px 0 6px;
+  font-weight: 700;
+}
+
+.quick-dates {
+  padding: 0;
+  margin: 20px 0 0;
+  border: 0;
+  min-width: 0;
+}
+
+.quick-dates legend {
+  font-weight: 700;
+  padding: 0 0 8px;
+}
+
+.week-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.date-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.date-button {
+  font-size: 13px;
+  padding: 8px;
+}
+
+.button[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.court-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.code-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.code-input > span {
+  font-size: 24px;
+  font-weight: 700;
+}
+
 .token-guide summary {
   min-height: 44px;
   padding-block: 10px;

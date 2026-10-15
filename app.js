@@ -68,6 +68,7 @@
     document.getElementById("retrySaveButton").addEventListener("click", function () {
       store.retry().catch(function () { /* The store keeps the change and publishes its outcome. */ });
     });
+    window.EarlyBirdsBooking.init({ store: store, auth: auth, model: model, config: config });
     auth.init().then(function () {
       window.addEventListener("early-birds-session-change", refresh);
       refresh();

@@ -27,6 +27,7 @@ There is no dependency installation or build step.
 - `config.js`: public GitHub target, data paths, booking limits and browser-storage keys;
 - `app.js`: application bootstrap;
 - `auth.js`: sign-in, browser sessions, profile and access helpers;
+- `booking.js`: Add Court form, quick dates, draft validation and save/retry integration;
 - `model.js`: version 1 validation and replayable data actions;
 - `store.js`: shared reads, queued saves and conflict reconciliation;
 - `data/users.json`: the agreed initial player directory;
@@ -58,9 +59,31 @@ out and remove the token. A signed-out reload keeps the token without restoring
 a player session; it is checked with GitHub again when you next sign in.
 
 Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
-The panels show loaded counts or empty states. Game cards, booking forms, bagel
-entry and Admin editing controls are subsequent tasks. Branding artwork and
+The panels show loaded counts or empty states. Task 3.1 adds the **+ Add Court**
+button and booking form. Game cards, bagel entry and Admin editing controls are
+subsequent tasks. Branding artwork and
 install icons are later tasks.
+
+## Adding a court
+
+In Games, choose **+ Add Court**. Visitors are prompted to sign in; any signed-in
+player can book without Admin mode. The booker is prefilled with your name and
+automatically receives a green place. Choose a day from this/next week's quick
+buttons, or use the date picker for any future date. Sunday opens the next-week
+shortcuts by default. No recurring slots are generated.
+
+Time defaults to 08:00, with hourly starts from 07:00 to 21:00 and a fixed one-hour
+duration in Europe/London. Choose court 1–6 and enter a six-digit code. A pasted
+leading star is removed; the form displays one star and preserves leading zeroes.
+The shared store rejects duplicate court/date/time bookings and overlapping green
+places for the booker. Different players can book separate simultaneous courts.
+
+Save is disabled while pending; the form closes only after confirmation. Failed
+details remain available when closing/reopening the form in the same tab, with a
+stable booking ID for retry. An uncertain save locks details until the same booking
+is reconciled, avoiding duplicate creations. Drafts are kept per player in memory,
+not browser storage, and the form closes when the signed-in player changes.
+Saved bookings currently update the Games count; full cards are task 3.2.
 
 Task 2.5 adds separate save outcomes and recovery: a pending change is shown as
 saving, a confirmed change as saved, a rejected change as not saved, and a lost
@@ -199,6 +222,10 @@ They cover failed sign-in, profile updates, restore, cancellation, storage failu
 cross-tab sign-out, retained-token reuse/forgetting, signed-out reload, code masking, local/GitHub refresh, refresh failure/recovery
 and phone/desktop layouts. They also simulate denied saves and verify that the
 retry button retains original values and only shows saved after confirmation.
+Add Court checks cover defaults, date shortcuts, court/time limits, star/zero
+handling, duplicate submission, duplicate bookings, booker enrolment, failed and
+uncertain saves, retained drafts and dialog widths from 320px to 1280px. These
+form checks simulate GitHub responses and do not create live bookings.
 
 ## Live foundation verification (task 2.6)
 

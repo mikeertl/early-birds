@@ -67,16 +67,19 @@ async function main() {
       const realFetch = window.fetch.bind(window);
       window.tokenChecks = 0;
       window.mockFiles = {};
+      window.mockWriteAttempts = 0;
       window.fetch = async (url, options = {}) => {
         if (!String(url).startsWith('https://api.github.com/')) return realFetch(url, options);
         if (String(url).includes('/contents/')) {
           if (window.failShared) return new Response('{}', {status:503});
           const file = String(url).includes('users.json') ? 'data/users.json' : 'data/current.json';
           if (options.method === 'PUT') {
+            window.mockWriteAttempts++;
             if (!window.allowWrites) throw new Error('Unexpected write');
             if (window.denySave) return new Response('{}', {status:403});
             await new Promise(resolve => setTimeout(resolve, 50));
             window.mockFiles[file] = atob(JSON.parse(options.body).content);
+            if (window.loseAckOnce) {window.loseAckOnce=false;window.failShared=true;throw new TypeError('Simulated lost response');}
             return new Response(JSON.stringify({content:{sha:'test-sha'}}));
           }
           const data = window.mockFiles[file] || await (await realFetch(file)).text();
@@ -121,7 +124,8 @@ async function main() {
       const code = document.createElement('span'); document.body.appendChild(code);
       auth.renderCourtCode(code, '012345');
       check(!code.outerHTML.includes('012345') && code.textContent.includes('Sign in'), 'visitor code absent from DOM');
-      check(auth.requireWrite() === false && el('profileDialog').open && el('profileError').textContent.includes('Sign in'), 'visitor write guard');
+      el('addCourtButton').click();
+      check(auth.getSession()===null && el('profileDialog').open && !el('courtDialog').open && el('profileError').textContent.includes('Sign in'), 'visitor Add Court requires sign-in');
       await submit('test-invalid');
       check(!auth.getSession() && el('profileError').textContent.includes('invalid') && el('profileToken').value === 'test-invalid', 'invalid token retains input; no sign-in');
       await submit('test-denied');
@@ -142,11 +146,49 @@ async function main() {
       window.failShared = false; el('refreshButton').click(); await wait();
       check(el('dataError').textContent === '' && el('dataStatus').textContent.includes('refreshed'), 'refresh retry recovers');
       check(el('staleNotice').hidden, 'successful refresh clears stale notice');
+      window.allowWrites = true;
+      el('addCourtButton').click();
+      check(el('courtDialog').open && el('courtBooker').value==='Mike Ertl' && el('courtBooker').readOnly, 'Add Court prefills signed-in booker');
+      check(el('courtTime').value==='08:00' && el('courtDate').value==='' && el('courtNumber').value==='' && el('courtCode').value==='', 'booking defaults time only; other details required');
+      check(el('courtTime').options[0].value==='07:00' && el('courtTime').options[14].value==='21:00' && el('courtNumber').options.length===7, 'agreed hourly times and six courts');
+      el('nextWeekButton').click();
+      const quick=[...el('courtQuickDates').querySelectorAll('button')];
+      check(quick.length===7 && quick.every(button=>!button.disabled), 'next week offers seven future quick dates');
+      quick[0].click(); check(el('courtDate').value>el('courtDate').min, 'quick date fills date picker');
+      el('courtDate').value='2099-10-15';el('courtNumber').value='1';el('courtCode').value='123';
+      const beforeInvalid=window.mockWriteAttempts; el('courtForm').requestSubmit(); await wait();
+      check(el('courtDialog').open && window.mockWriteAttempts===beforeInvalid, 'invalid code never reaches a write');
+      el('courtCode').focus();el('courtCode').value='*012345';el('courtCode').dispatchEvent(new Event('input',{bubbles:true}));
+      check(el('courtCode').value==='012345', 'pasted star normalised and leading zero retained');
+      const beforeSave=window.mockWriteAttempts;el('courtForm').requestSubmit();el('courtForm').requestSubmit();
+      await new Promise(resolve=>setTimeout(resolve,150));
+      check(!el('courtDialog').open && window.mockWriteAttempts===beforeSave+1, 'double submit creates exactly one booking and closes on confirmation');
+      let created=window.EarlyBirdsStore.getSnapshot().state.courts;
+      check(created.length===1 && created[0].bookedBy==='mike-ertl' && created[0].green.length===1 && created[0].green[0]==='mike-ertl' && created[0].code==='012345', 'saved court automatically enrols booker and stores six-digit code');
+      el('addCourtButton').click();el('courtDate').value='2099-10-15';el('courtNumber').value='1';el('courtCode').value='123456';
+      const beforeDuplicate=window.mockWriteAttempts;el('courtForm').requestSubmit();await wait();
+      check(el('courtDialog').open && el('courtError').textContent.includes('already booked') && window.mockWriteAttempts===beforeDuplicate, 'duplicate court rejected without losing input');
+      el('courtDate').value='2099-10-16';el('courtCode').value='001234';window.denySave=true;el('courtForm').requestSubmit();await wait();
+      const retainedId=window.EarlyBirdsStore.getRecovery().action.court.id;
+      check(el('courtDialog').open && el('courtCode').value==='001234' && el('courtDate').value==='2099-10-16', 'denied booking keeps typed form values');
+      el('closeCourtButton').click();el('addCourtButton').click();
+      check(el('courtCode').value==='001234' && el('saveCourtButton').textContent.includes('Retry'), 'closing failed form preserves its draft');
+      window.denySave=false;el('courtForm').requestSubmit();await new Promise(resolve=>setTimeout(resolve,150));
+      check(!el('courtDialog').open && window.EarlyBirdsStore.getSnapshot().state.courts.some(c=>c.id===retainedId && c.code==='001234'), 'form retry uses same booking ID and original values');
+      el('addCourtButton').click();el('courtDate').value='2099-10-17';el('courtNumber').value='1';el('courtCode').value='002345';
+      window.loseAckOnce=true;el('courtForm').requestSubmit();await new Promise(resolve=>setTimeout(resolve,150));
+      check(el('courtDialog').open && el('courtFields').disabled && !el('saveCourtButton').disabled && el('courtError').textContent.includes('not confirmed'), 'uncertain save freezes details while allowing reconciliation');
+      const unknownId=window.EarlyBirdsStore.getRecovery().action.court.id;
+      window.failShared=false;el('courtForm').requestSubmit();await new Promise(resolve=>setTimeout(resolve,100));
+      check(!el('courtDialog').open && window.EarlyBirdsStore.getSnapshot().state.courts.filter(c=>c.id===unknownId).length===1, 'uncertain booking reconciles without a duplicate');
+      window.mockFiles['data/current.json']=await(await fetch('data/current.json')).text();await window.EarlyBirdsStore.refresh();
       window.allowWrites = true; window.denySave = true;
       const intent = {type:'court.add',court:{id:'browser-retry-court',date:'2099-10-14',time:'08:00',courtNumber:1,code:'012345',bookedBy:'mike-ertl'}};
       const saving = window.EarlyBirdsStore.mutate(intent);
+      const completed = saving.catch(() => {});
+      await wait();
       check(el('saveStatus').textContent === '' || !el('saveStatus').textContent.includes('saved'), 'no premature saved message');
-      await saving.catch(() => {});
+      await completed;
       check(el('saveError').textContent.includes('not saved') && !el('retrySaveButton').hidden, 'failed save keeps intent and offers retry');
       intent.court.code = '999999';
       check(window.EarlyBirdsStore.getRecovery().action.court.code === '012345', 'stored retry intent preserves original input');
@@ -227,6 +269,23 @@ async function main() {
       assert(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'));
       assert(await evaluate('document.getElementById("profileDialog").scrollWidth <= document.getElementById("profileDialog").clientWidth'));
       console.log(`Page and profile dialog fit ${width}px width`);
+    }
+    await evaluate(`(async()=>{
+      document.getElementById('cancelProfileButton').click();await new Promise(r=>setTimeout(r,30));
+      document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';
+      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('addCourtButton').click();
+    })()`);
+    for (const width of [320, 390, 768, 1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride', {width, height:850, deviceScaleFactor:1, mobile:width<540});
+      assert(await evaluate('document.getElementById("courtDialog").open'));
+      assert(await evaluate('document.getElementById("courtDialog").scrollWidth <= document.getElementById("courtDialog").clientWidth'));
+      assert(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'));
+      console.log(`Add Court dialog fits ${width}px width`);
+      if (width===390 && process.env.TEST_SCREENSHOT_PATH) {
+        const shot=await cdp('Page.captureScreenshot',{format:'png'});
+        await fs.writeFile(process.env.TEST_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+      }
     }
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');
