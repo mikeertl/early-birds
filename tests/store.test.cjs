@@ -292,3 +292,48 @@ test('Admin assignments enforce the same capacity and overlap rules; ordinary pl
   await admin.mutate({type:'participation.set',courtId:'b',userId:'ivan',status:'reserved'});
   assert(remote.documents['data/current.json'].courts[1].reserved.includes('ivan'));
 });
+test('court edits enforce ownership and validation, including every green player overlap', async () => {
+  const remote=server();remote.documents['data/current.json'].courts=[
+    court('a',{date:'2099-10-15',green:['mike-ertl','ellen'],reserved:['arda']}),
+    court('b',{date:'2099-10-15',time:'09:00',courtNumber:2,bookedBy:'akiko',green:['ellen']})];
+  const owner=client(remote).store, other=client(remote,'akiko').store, admin=client(remote,'akiko',true).store;
+  const patch=(changes,expected)=>({type:'court.patch',courtId:'a',changes,expected});
+  await assert.rejects(other.mutate(patch({code:'111111'},{code:'012345'})),/booker or Admin/);
+  await assert.rejects(other.mutate({type:'court.remove',courtId:'a'}),/booker or Admin/);
+  await assert.rejects(owner.mutate(patch({bookedBy:'akiko'},{bookedBy:'mike-ertl'})),/Admin/);
+  for(const changes of [{time:'06:00'},{time:'21:30'},{courtNumber:7},{code:'12345'},{code:'abcdef'},{date:'2020-01-01'}]) {
+    const expected=Object.fromEntries(Object.keys(changes).map(key=>[key,remote.documents['data/current.json'].courts[0][key]]));
+    await assert.rejects(owner.mutate(patch(changes,expected)));
+  }
+  await assert.rejects(owner.mutate(patch({time:'09:00'},{time:'08:00'})),/overlapping/);
+  await assert.rejects(admin.mutate(patch({time:'09:00'},{time:'08:00'})),/overlapping/);
+  await assert.rejects(owner.mutate(patch({time:'09:00',courtNumber:2},{time:'08:00',courtNumber:1})),/already booked/);
+  assert.equal(remote.puts,0);
+  await admin.mutate(patch({bookedBy:'akiko'},{bookedBy:'mike-ertl'}));
+  let changed=remote.documents['data/current.json'].courts[0];
+  assert.deepEqual(changed.green,['mike-ertl','ellen']);assert.deepEqual(changed.reserved,['arda']);
+  assert.equal(changed.bookedBy,'akiko');assert.equal(changed.createdBy,'mike-ertl');
+  await assert.rejects(owner.mutate(patch({code:'111111'},{code:'012345'})),/booker or Admin/);
+  await other.mutate(patch({time:'10:00'},{time:'08:00'}));
+  assert.equal(remote.documents['data/current.json'].courts[0].time,'10:00');
+});
+test('confirmed deletion rejects changed details, preserves bagels and reconciles lost acknowledgement', async () => {
+  const remote=server();const original=court('a',{date:'2099-10-15',green:['mike-ertl','ellen'],reserved:['arda']});
+  remote.documents['data/current.json'].courts=[original];
+  const history={id:'history',sourceCourtId:'a',date:'2026-10-13',winners:[{userId:'mike-ertl',name:'Mike Ertl'}],losers:[{userId:'akiko',name:'Akiko'}],createdAt:now,createdBy:'mike-ertl'};
+  remote.documents['data/current.json'].bagels=[history];
+  const owner=client(remote).store;
+  const expected=Object.fromEntries(['date','time','courtNumber','code','bookedBy'].map(key=>[key,original[key]]));
+  remote.beforePut=(docs,revisions,file)=>{docs[file].courts[0].time='09:00';revisions[file]++;};
+  await assert.rejects(owner.mutate({type:'court.remove',courtId:'a',expected}),/confirm deletion again/);
+  assert.equal(remote.documents['data/current.json'].courts.length,1);
+  expected.time='09:00';
+  remote.beforePut=(docs,revisions,file)=>{docs[file].courts[0].reserved.push('dimitar');revisions[file]++;};
+  remote.loseAck=true;
+  await owner.mutate({type:'court.remove',courtId:'a',expected});
+  assert.equal(remote.documents['data/current.json'].courts.length,0);
+  assert.deepEqual(remote.documents['data/current.json'].bagels,[history]);
+  assert.equal(owner.getRecovery(),null);
+  await owner.mutate({type:'court.remove',courtId:'a',expected});
+  await assert.rejects(owner.mutate({type:'court.patch',courtId:'a',changes:{code:'111111'},expected:{code:'012345'}}),/no longer exists/);
+});

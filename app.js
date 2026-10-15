@@ -59,7 +59,6 @@
         auth.setUsers(event.data.users);
         games.render(event.data);
         showCount("bagels", event.data.state.bagels.length, "recorded sets");
-        showCount("admin", event.data.users.users.filter(function (user) { return user.active; }).length, "active players");
       } else if (!event.data) {
         Object.keys(emptyMessages).forEach(function (name) { setPanelState(name, phase === "error" ? "error" : "loading", event.status.message); });
       }

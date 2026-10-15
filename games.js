@@ -2,6 +2,7 @@
   "use strict";
   function init(options) {
     var list = document.getElementById("gamesList");
+    var adminList = document.getElementById("adminCourtsList");
     var auth = options.auth;
     var store = options.store;
     var feedback = new Map();
@@ -25,6 +26,7 @@
       list.querySelectorAll("[data-participation]").forEach(function (button) {
         button.disabled = locked() || button.dataset.overlap === "true";
       });
+      document.querySelectorAll("[data-court-management]").forEach(function (button) { button.disabled = locked(); });
       list.querySelectorAll(".game-card").forEach(function (card) {
         var value = feedback.get(card.dataset.courtId);
         card.querySelector(".participation-status").textContent = value && !value.error ? value.message : "";
@@ -107,6 +109,16 @@
       var hour = Number(time.slice(0, 2));
       return (hour % 12 || 12) + ":" + time.slice(3) + (hour < 12 ? "am" : "pm");
     }
+    function managementActions(court) {
+      var management = element("div", "game-actions");
+      ["edit", "delete"].forEach(function (action) {
+        var control = element("button", "button secondary", action === "edit" ? "Edit court" : "Delete court");
+        control.type = "button"; control.dataset.courtManagement = action;
+        control.setAttribute("aria-label", control.textContent + ": Court " + court.courtNumber + ", " + formatDate(court.date) + " at " + formatTime(court.time));
+        management.appendChild(control);
+      });
+      return management;
+    }
     function render(data) {
       latest = data;
       var focused = document.activeElement;
@@ -118,6 +130,7 @@
         return a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.courtNumber - b.courtNumber || a.id.localeCompare(b.id);
       });
       list.replaceChildren();
+      adminList.replaceChildren();
       courts.forEach(function (court, index) {
         var previousMessage = feedback.get(court.id);
         if (previousMessage && previousMessage.membership && previousMessage.membership !== JSON.stringify([court.green, court.reserved])) feedback.delete(court.id);
@@ -141,6 +154,19 @@
         access.append(element("dt", "", "Code"), codeValue);
         facts.append(booker, access);
         details.append(heading, meta, facts);
+        var manager = auth.getSession();
+        if (manager && court.bookedBy === manager.userId) details.appendChild(managementActions(court));
+        if (manager && manager.isAdmin) {
+          var adminCard = element("article", "game-card admin-court-card");
+          adminCard.dataset.courtId = court.id;
+          var adminDetails = details.cloneNode(true);
+          adminDetails.querySelectorAll(".game-actions").forEach(function (node) { node.remove(); });
+          adminDetails.querySelector("h3").id = "admin-court-title-" + index;
+          adminCard.setAttribute("aria-labelledby", "admin-court-title-" + index);
+          adminDetails.appendChild(managementActions(court));
+          adminCard.appendChild(adminDetails); adminList.appendChild(adminCard);
+          auth.renderCourtCode(adminDetails.querySelector(".game-code"), court.code);
+        }
         var players = element("div", "game-players");
         var playing = element("section", "player-group");
         playing.setAttribute("aria-label", "Playing");
@@ -193,6 +219,10 @@
         auth.renderCourtCode(code, court.code);
       });
       options.ui.setPanelState("games", courts.length ? "ready" : "empty");
+      var actor = auth.getSession();
+      document.getElementById("adminPlayerCount").textContent = actor && actor.isAdmin ? data.users.users.filter(function (user) { return user.active; }).length + " active players." : "";
+      document.getElementById("adminCourtsEmpty").hidden = courts.length > 0;
+      options.ui.setPanelState("admin", actor && actor.isAdmin ? "ready" : "empty");
       updateControls();
       if (focusTarget && !mutating) focusAction(focusTarget.courtId, focusTarget.status);
     }

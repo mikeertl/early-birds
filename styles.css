@@ -22,6 +22,10 @@
   display: none !important;
 }
 
+.game-card.admin-court-card {
+  display: block;
+}
+
 body {
   margin: 0;
   background: var(--bg);

@@ -62,8 +62,8 @@ a player session; it is checked with GitHub again when you next sign in.
 Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
 Games shows booking cards or an empty state; the other tabs show loaded counts.
 Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
-cards. Task 3.3 adds participation buttons; bagel entry and Admin editing controls
-are subsequent tasks. Branding artwork and
+cards. Tasks 3.3–3.4 add participation controls and action refresh; 3.5 adds court
+editing and deletion. Bagel entry and Admin player management are subsequent tasks. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -97,6 +97,31 @@ for both groups. Current names, including inactive players in existing bookings,
 are resolved from stable user IDs. Names are inserted as text, never HTML. Player
 lists sit to the right on wider screens and beneath booking details on phones.
 Expiry/cleanup is task 3.6.
+
+## Editing and deleting courts
+
+Bookers see **Edit court** and **Delete court** on their own Games cards.
+The **Admin** tab lists all courts with management controls, including changing
+booked-by. Games keeps the booker fixed even when the player has Admin mode on.
+Editing prefills the existing details and uses the same
+date, hourly time, court-number and six-digit code validation as adding a court.
+Only Admin can change booked-by, choosing an active player. Changing ownership
+preserves the current playing/reserve lists; it does not enrol the new booker.
+Moving a booking checks every green player's other games and rejects overlaps.
+
+Edits save only changed fields against their original values. Independent changes
+merge; if someone edits the same field, the form keeps your input and explains
+the conflict. **Load latest details** explicitly replaces the unsaved draft with
+the latest booking, which you can review and edit again. Failed drafts survive
+closing/reopening in the same tab. An uncertain save locks details until retry
+confirms the original action; the global retry button also works after closing.
+
+Deletion asks you to confirm the court, date and time. It removes the court and
+its participation, retaining all bagel history. If booking details change before
+the deletion is saved, load the latest details and confirm again. Concurrent
+participation changes do not prevent a confirmed deletion. All writes recheck
+ownership against fresh shared data; a former booker cannot edit/delete after
+ownership transfers unless they use Admin mode.
 
 ## Joining and reserving
 
@@ -262,8 +287,10 @@ location, set `CHROME_BIN` to its executable. Checks use a temporary Chrome prof
 synthetic tokens and intercepted GitHub responses, and never write to GitHub.
 They cover failed sign-in, profile updates, restore, cancellation, storage failure,
 cross-tab sign-out, retained-token reuse/forgetting, signed-out reload, code masking, local/GitHub refresh, refresh failure/recovery
-and phone/desktop layouts. They also simulate denied saves and verify that the
-retry button retains original values and only shows saved after confirmation.
+and phone/desktop layouts, including edit and delete dialogs. They also cover
+booker/Admin controls, independent and same-field edit conflicts, ownership
+changes, deletion confirmation/cancellation and failed/uncertain edit/delete
+recovery. Denied saves retain original values and only show saved after confirmation.
 Add Court checks cover defaults, date shortcuts, court/time limits, star/zero
 handling, duplicate submission, duplicate bookings, booker enrolment, failed and
 uncertain saves, retained drafts and dialog widths from 320px to 1280px. These

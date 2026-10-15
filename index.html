@@ -80,7 +80,12 @@
             <p class="state-title" data-state-title>No admin items to show yet</p>
             <p class="state-description" data-state-description>Player and court management will appear here.</p>
           </div>
-          <div id="adminContent" class="content-list" data-panel-content hidden></div>
+          <div id="adminContent" class="content-list" data-panel-content hidden>
+            <p id="adminPlayerCount"></p>
+            <h3>Court management</h3>
+            <div id="adminCourtsList" class="content-list"></div>
+            <p id="adminCourtsEmpty" hidden>No courts to manage yet.</p>
+          </div>
           <p class="status-line" data-panel-status role="status" aria-atomic="true"></p>
           <p class="error-line" data-panel-error role="alert" aria-atomic="true"></p>
         </section>
@@ -109,6 +114,7 @@
           <fieldset id="courtFields" class="court-fields">
             <label for="courtBooker">Booked by</label>
             <input id="courtBooker" type="text" readonly />
+            <select id="courtBookerSelect" aria-label="Booked by" hidden></select>
             <fieldset class="quick-dates">
               <legend>Choose a day</legend>
               <div class="week-buttons">
@@ -134,6 +140,7 @@
           <div class="form-actions">
             <button id="saveCourtButton" class="button" type="submit">Save court</button>
             <button id="closeCourtButton" class="button secondary" type="button">Close</button>
+            <button id="reloadCourtButton" class="button secondary" type="button" hidden>Load latest details</button>
           </div>
         </form>
       </dialog>

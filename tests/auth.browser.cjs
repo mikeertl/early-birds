@@ -184,7 +184,7 @@ async function main() {
       await wait();
       check(document.querySelector('.game-code').textContent==='*012345', 'signed-in card reveals exactly one star and leading zero');
       window.allowWrites=true;
-      const game=id=>document.querySelector('[data-court-id="'+id+'"]');
+      const game=id=>el('gamesList').querySelector('[data-court-id="'+id+'"]');
       const control=(id,status)=>game(id).querySelector('[data-participation="'+status+'"]');
       const membership=id=>window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id===id);
       async function place(id,status){control(id,status).click();await new Promise(r=>setTimeout(r,150));}
@@ -238,6 +238,65 @@ async function main() {
       check(window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && [...document.querySelectorAll('[data-participation]')].every(button=>button.disabled), 'uncertain participation save blocks conflicting new actions');
       window.failShared=false;el('retrySaveButton').click();await new Promise(r=>setTimeout(r,150));
       check(membership('later').reserved.filter(id=>id==='mike-ertl').length===1 && !control('later','none').disabled, 'uncertain participation retry confirms one membership and unlocks controls');
+      const management=(id,action)=>game(id).querySelector('[data-court-management="'+action+'"]');
+      const adminManagement=(id,action)=>el('adminCourtsList').querySelector('[data-court-id="'+id+'"] [data-court-management="'+action+'"]');
+      window.mockFiles['data/current.json']=JSON.stringify({...window.EarlyBirdsStore.getSnapshot().state,courts:gameFixtures()});await window.EarlyBirdsStore.refresh();
+      check(management('simultaneous-a','edit') && management('simultaneous-a','delete') && !management('simultaneous-b','edit') && !management('later','delete'), 'ordinary booker sees management only for own court');
+      management('simultaneous-a','edit').click();
+      check(el('courtDialog').open && el('courtTitle').textContent==='Edit court' && el('courtDate').value==='2099-10-14' && el('courtCode').value==='012345' && el('courtBookerSelect').hidden && el('courtBooker').value==='Mike Ertl', 'edit prefills booking and keeps ordinary booker readonly');
+      const editedPlayers=JSON.stringify([membership('simultaneous-a').green,membership('simultaneous-a').reserved]);
+      el('courtCode').focus();el('courtCode').value='*001234';el('courtCode').dispatchEvent(new Event('input',{bubbles:true}));const editBefore=window.mockWriteAttempts;el('courtForm').requestSubmit();el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      check(!el('courtDialog').open && window.mockWriteAttempts===editBefore+1 && membership('simultaneous-a').code==='001234' && JSON.stringify([membership('simultaneous-a').green,membership('simultaneous-a').reserved])===editedPlayers, 'double edit saves once, normalises code and preserves membership');
+      management('simultaneous-a','edit').click();el('courtCode').value='002345';
+      const independent=JSON.parse(window.mockFiles['data/current.json']);independent.courts.find(c=>c.id==='simultaneous-a').courtNumber=3;window.racingState=independent;
+      el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,200));
+      check(!el('courtDialog').open && membership('simultaneous-a').courtNumber===3 && membership('simultaneous-a').code==='002345', 'edit conflict merges independent fields');
+      management('simultaneous-a','edit').click();el('courtCode').value='003456';
+      const sameField=JSON.parse(window.mockFiles['data/current.json']);sameField.courts.find(c=>c.id==='simultaneous-a').code='004567';window.mockFiles['data/current.json']=JSON.stringify(sameField);
+      el('courtForm').requestSubmit();await wait();
+      check(el('courtDialog').open && el('courtCode').value==='003456' && el('courtError').textContent.includes('edited by someone else') && !el('reloadCourtButton').hidden, 'same-field edit conflict keeps typed values and offers explicit review');
+      el('reloadCourtButton').click();await wait();
+      check(el('courtCode').value==='004567' && el('courtError').textContent==='', 'Load latest details explicitly replaces conflicting edit');
+      el('courtCode').value='005678';window.denySave=true;el('courtForm').requestSubmit();await wait();el('closeCourtButton').click();management('simultaneous-a','edit').click();
+      check(el('courtCode').value==='005678' && el('saveCourtButton').textContent.includes('Retry'), 'failed edit draft survives closing and reopening');
+      window.denySave=false;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      check(!el('courtDialog').open && membership('simultaneous-a').code==='005678', 'failed edit retries original change');
+      management('simultaneous-a','edit').click();el('courtCode').value='006789';window.loseAckOnce=true;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      check(el('courtDialog').open && el('courtFields').disabled && [...document.querySelectorAll('[data-court-management]')].every(button=>button.disabled), 'uncertain edit locks details and other management');
+      window.failShared=false;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      check(!el('courtDialog').open && membership('simultaneous-a').code==='006789', 'uncertain edit reconciles without replacement');
+      management('simultaneous-a','delete').click();const cancelBefore=window.mockWriteAttempts;
+      check(el('courtTitle').textContent==='Delete court?' && el('courtFields').hidden && el('courtDescription').textContent.includes('Recorded bagels will be kept'), 'deletion requires named booking confirmation with history explanation');
+      el('closeCourtButton').click();check(window.mockWriteAttempts===cancelBefore && membership('simultaneous-a'), 'cancelled deletion does not write');
+      el('profileButton').click();await submit('', 'mike-ertl', true);await wait();
+      check(!management('simultaneous-b','edit') && !management('later','delete') && adminManagement('simultaneous-b','edit') && adminManagement('later','delete'), 'Admin management of other bookers courts appears only in Admin tab');
+      management('simultaneous-a','edit').click();
+      check(el('courtBookerSelect').hidden, 'Games keeps own-booker editing without Admin ownership selector');
+      el('closeCourtButton').click();el('adminTabButton').click();
+      check(!el('adminPanel').hidden && el('gamesPanel').hidden && el('adminCourtsList').children.length===3, 'Admin tab displays all court management cards');
+      adminManagement('simultaneous-b','edit').click();
+      check(!el('courtBookerSelect').hidden && el('courtBooker').hidden && el('courtBookerSelect').value==='akiko', 'Admin gets booked-by selector');
+      el('courtBookerSelect').value='arda';el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      check(!el('courtDialog').open && membership('simultaneous-b').bookedBy==='arda' && membership('simultaneous-b').green.join(',')==='akiko' && membership('simultaneous-b').reserved.join(',')==='mike-ertl', 'Admin changes ownership without enrolling or moving players');
+      check(!el('adminPanel').hidden && el('adminPanel').contains(document.activeElement), 'Admin save keeps tab and focus in Admin');
+      el('profileButton').click();await submit('', 'mike-ertl', false);await wait();
+      check(el('adminCourtsList').children.length===0 && el('adminTabButton').hidden && !el('gamesPanel').hidden, 'leaving Admin clears management cards and returns to Games');
+      management('simultaneous-a','delete').click();
+      const deleteRace=JSON.parse(window.mockFiles['data/current.json']);deleteRace.courts.find(c=>c.id==='simultaneous-a').time='09:00';window.mockFiles['data/current.json']=JSON.stringify(deleteRace);
+      el('courtForm').requestSubmit();await wait();
+      check(el('courtDialog').open && el('courtError').textContent.includes('confirm deletion again'), 'changed booking requires renewed deletion confirmation');
+      el('reloadCourtButton').click();await wait();
+      check(el('courtDescription').textContent.includes('09:00'), 'deletion review shows updated booking details');
+      window.denySave=true;el('courtForm').requestSubmit();await wait();
+      check(el('courtDialog').open && membership('simultaneous-a') && el('courtError').textContent.includes('denied'), 'rejected deletion keeps court and offers retry');
+      window.denySave=false;window.loseAckOnce=true;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      check(el('courtDialog').open && !el('saveCourtButton').disabled && el('courtError').textContent.includes('not confirmed'), 'uncertain deletion remains open for reconciliation');
+      window.failShared=false;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      check(!el('courtDialog').open && !game('simultaneous-a') && !membership('simultaneous-a'), 'booker deletion reconciles and removes card and participation');
+      el('profileButton').click();await submit('', 'mike-ertl', true);await wait();
+      el('adminTabButton').click();adminManagement('later','delete').click();el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      check(!el('courtDialog').open && !membership('later') && membership('simultaneous-b'), 'Admin deletes another bookers court while preserving other games');
+      el('profileButton').click();await submit('', 'mike-ertl', false);await wait();
       window.allowWrites=false;window.fixtureState=null;delete window.mockFiles['data/current.json'];await window.EarlyBirdsStore.refresh();
       check(!document.querySelector('.game-card') && el('gamesList').hidden, 'empty refresh removes old cards and restores empty state');
       check(el('dataError').textContent === '' && !el('dataStatus').textContent.includes('local preview'), 'sign-in refreshes GitHub data');
@@ -409,6 +468,26 @@ async function main() {
         const shot=await cdp('Page.captureScreenshot',{format:'png'});
         await fs.writeFile(process.env.TEST_GAMES_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
       }
+    }
+    await evaluate(`(async()=>{
+      document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';
+      document.getElementById('profileAdmin').checked=true;document.getElementById('profileForm').requestSubmit();
+      await new Promise(r=>setTimeout(r,150));
+      document.getElementById('adminTabButton').click();
+    })()`);
+    for (const action of ['edit','delete']) {
+      await evaluate(`document.querySelector('#adminCourtsList [data-court-management="${action}"]').click()`);
+      for (const width of [320,390,768,1280]) {
+        await cdp('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<540});
+        assert(await evaluate('document.getElementById("courtDialog").open'));
+        assert(await evaluate('document.getElementById("courtDialog").scrollWidth <= document.getElementById("courtDialog").clientWidth && document.documentElement.scrollWidth <= window.innerWidth'));
+        console.log(`${action} court dialog fits ${width}px width`);
+        if(action==='edit' && width===390 && process.env.TEST_MANAGEMENT_SCREENSHOT_PATH) {
+          const shot=await cdp('Page.captureScreenshot',{format:'png'});
+          await fs.writeFile(process.env.TEST_MANAGEMENT_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+        }
+      }
+      await evaluate('document.getElementById("closeCourtButton").click()');
     }
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');

@@ -104,6 +104,7 @@
           break;
         }
         case "court.patch":
+          check(court, "This court no longer exists.");
           owned(court);
           fields(action.changes, ["date", "time", "courtNumber", "code", "bookedBy"]);
           Object.keys(action.changes).forEach(function (key) {
@@ -114,7 +115,13 @@
           });
           future(court); break;
         case "court.remove":
-          if (court) { owned(court); next.courts = next.courts.filter(function (item) { return item.id !== court.id; }); }
+          if (court) {
+            owned(court);
+            if (action.expected) Object.keys(action.expected).forEach(function (key) {
+              check(court[key] === action.expected[key], "This court was edited by someone else. Load latest details and confirm deletion again.");
+            });
+            next.courts = next.courts.filter(function (item) { return item.id !== court.id; });
+          }
           break;
         case "participation.set": {
           check(court, "This court no longer exists.");
