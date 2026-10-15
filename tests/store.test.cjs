@@ -341,6 +341,25 @@ function expiryFixture() {
   return {...clone(seedState),courts:[court('old',{date:'2026-10-13'}),court('today'),court('future',{date:'2026-10-15'})],
     bagels:[{id:'kept',sourceCourtId:'old',date:'2026-10-13',winners:[{userId:'mike-ertl',name:'Original Mike'}],losers:[{userId:'akiko',name:'Original Akiko'}],createdAt:now,createdBy:'mike-ertl'}]};
 }
+test('only Admin deletes a bagel; retry and concurrent changes preserve other records and courts', async () => {
+  const state=expiryFixture();state.courts=state.courts.filter(c=>c.id!=='old');
+  state.bagels.push({...clone(state.bagels[0]),id:'other-set'});
+  const remote=server({'data/current.json':state});
+  const action={type:'bagel.remove',bagelId:'kept'};
+  await assert.rejects(client(remote).store.mutate(action),/Admin/);
+  await assert.rejects(client(remote,null).store.mutate(action),/Sign in/);
+  assert.equal(remote.puts,0);
+  const admin=client(remote,'mike-ertl',true).store;
+  remote.beforePut=(docs,revisions,file)=>{docs[file].bagels.push({...clone(state.bagels[0]),id:'concurrent-set'});revisions[file]++;};
+  await admin.mutate(action);
+  assert.equal(remote.conflicts,1);
+  assert.deepEqual(remote.documents['data/current.json'].bagels.map(b=>b.id),['other-set','concurrent-set']);
+  assert.deepEqual(remote.documents['data/current.json'].courts,state.courts);
+  const puts=remote.puts;await admin.mutate(action);assert.equal(remote.puts,puts);
+  remote.loseAck=true;await admin.mutate({type:'bagel.remove',bagelId:'other-set'});
+  assert.deepEqual(remote.documents['data/current.json'].bagels.map(b=>b.id),['concurrent-set']);
+  assert.equal(admin.getRecovery(),null);
+});
 test('authenticated refresh automatically cleans old courts; visitor reads never write', async () => {
   const remote=server({'data/current.json':expiryFixture()});
   const visitor=client(remote,null,false,{isLocal:true}).store;
@@ -555,4 +574,34 @@ test('Lost self-deactivation acknowledgement confirms safely; inactive Admin can
   assert.equal(remote.puts,1);
   await akiko.mutate({type:'user.patch',userId:'mike-ertl',expected:{active:false},changes:{active:true}});
   assert.equal(remote.documents['data/users.json'].users.find(u=>u.id==='mike-ertl').active,true);
+});
+test('Admin court controls work on completed games, preserve history and remove inactive members safely', async () => {
+  const remote=server();remote.documents['data/users.json'].users.find(u=>u.id==='ellen').active=false;
+  const history={id:'kept-set',sourceCourtId:'a',date:'2026-10-14',winners:[{userId:'mike-ertl',name:'Mike recorded'}],losers:[{userId:'ellen',name:'Ellen recorded'}],createdAt:now,createdBy:'mike-ertl'};
+  remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','ellen'],reserved:['arda']})];remote.documents['data/current.json'].bagels=[history];
+  const admin=client(remote,'akiko',true).store, ordinary=client(remote,'akiko').store;
+  const action=(userId,status)=>({type:'participation.set',courtId:'a',userId,status,asAdmin:true});
+  await assert.rejects(ordinary.mutate(action('akiko','reserved')),/Admin/);
+  await assert.rejects(admin.mutate(action('ellen','reserved')),/not active/);
+  await admin.mutate(action('ellen','none'));
+  await admin.mutate(action('arda','green'));
+  await admin.mutate(action('dimitar','reserved'));
+  await admin.mutate(action('mike-ertl','reserved'));
+  let current=remote.documents['data/current.json'];
+  assert.deepEqual(current.courts[0].green,['arda']);assert.deepEqual(current.courts[0].reserved,['dimitar','mike-ertl']);
+  assert.equal(current.courts[0].bookedBy,'mike-ertl');assert.deepEqual(current.bagels,[history]);
+  await admin.mutate(action('dimitar','none'));
+  assert.deepEqual(remote.documents['data/current.json'].courts[0].reserved,['mike-ertl']);
+});
+test('Concurrent Admin assignment and player join retain both intentions with at most four playing', async () => {
+  const remote=server();remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','arda','ellen'],reserved:['dimitar']})];
+  const admin=client(remote,'mike-ertl',true).store, player=client(remote,'akiko').store;
+  await Promise.all([
+    admin.mutate({type:'participation.set',courtId:'a',userId:'ivan',status:'green',asAdmin:true}),
+    player.mutate({type:'participation.set',courtId:'a',status:'green'}),
+  ]);
+  const result=remote.documents['data/current.json'].courts[0];
+  assert.equal(result.green.length,4);assert.equal(result.reserved.length,2);assert(result.reserved.includes('dimitar'));
+  for(const id of ['ivan','akiko']) assert(result.green.includes(id) || result.reserved.includes(id));
+  assert(remote.conflicts>0);
 });

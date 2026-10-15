@@ -84,15 +84,20 @@
             <p class="state-description" data-state-description>Player and court management will appear here.</p>
           </div>
           <div id="adminContent" class="content-list" data-panel-content hidden>
-            <p id="adminPlayerCount"></p>
-            <section aria-labelledby="adminPlayersTitle">
-              <h3 id="adminPlayersTitle">Players</h3>
-              <p class="field-help">Rename players or change their availability. Bookings and recorded bagel names are kept.</p>
+            <details id="adminPlayersDetails" class="admin-players-panel">
+              <summary id="adminPlayersTitle">Players <span id="adminPlayerCount"></span></summary>
+              <p class="field-help">Rename players or change their availability. Bookings and bagel results are kept.</p>
               <button id="addPlayerButton" class="button secondary" type="button" hidden>+ Add player</button>
               <ul id="adminPlayersList" class="admin-players-list"></ul>
               <p id="adminPlayersEmpty" hidden>No players to manage.</p>
-            </section>
-            <button id="historicalBagelButton" class="button secondary" type="button" data-bagel-court="" data-bagel-admin="true" hidden>Add historical bagel</button>
+            </details>
+            <details id="adminBagelsDetails" class="admin-players-panel">
+              <summary>Bagels <span id="adminBagelCount"></span></summary>
+              <div class="form-actions">
+                <button id="historicalBagelButton" class="button secondary" type="button" data-bagel-court="" data-bagel-admin="true" hidden>Add historical bagel</button>
+                <button id="manageBagelsButton" class="button secondary" type="button">Find / delete a bagel</button>
+              </div>
+            </details>
             <h3>Court management</h3>
             <button id="adminAddCourtButton" class="button" type="button" hidden>+ Add Court</button>
             <div id="adminCourtsList" class="content-list"></div>
@@ -135,6 +140,28 @@
             <button id="closePlayerButton" class="button secondary" type="button">Close</button>
           </div>
         </form>
+      </dialog>
+      <dialog id="manageBagelsDialog" aria-labelledby="manageBagelsTitle">
+        <div class="bagel-manager-heading">
+          <h2 id="manageBagelsTitle">Manage bagels</h2>
+          <button id="closeManageBagelsButton" class="button secondary" type="button">Close</button>
+        </div>
+        <div id="bagelSearchArea">
+          <label for="bagelSearch">Find by player or date (YYYY-MM-DD)</label>
+          <input id="bagelSearch" type="search" autocomplete="off">
+          <p id="bagelSearchCount" class="field-help" role="status"></p>
+          <ul id="bagelSearchResults" class="bagel-search-results" aria-label="Recorded bagels"></ul>
+        </div>
+        <div id="bagelDeleteReview" hidden>
+          <p id="bagelDeleteDescription"></p>
+          <p id="bagelDeleteWarning">Delete this 6–0 set permanently? Other sets and courts will be kept.</p>
+          <div class="form-actions">
+            <button id="confirmBagelDeleteButton" class="button" type="button">Delete bagel</button>
+            <button id="backToBagelsButton" class="button secondary" type="button">Back to results</button>
+          </div>
+        </div>
+        <p id="bagelDeleteStatus" class="status-line" role="status"></p>
+        <p id="bagelDeleteError" class="error-line" role="alert"></p>
       </dialog>
       <dialog id="bagelDialog" aria-labelledby="bagelTitle" aria-describedby="bagelContext">
         <form id="bagelForm">

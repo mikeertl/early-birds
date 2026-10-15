@@ -732,15 +732,15 @@ async function main() {
         make('new-a','2026-10-16','2026-10-16T10:00:00.500Z',[{...mike,name:'Mike <img src=x onerror=alert(1)>'}],[akiko])
       ]};
       window.mockFiles['data/current.json']=JSON.stringify(window.fixtureState);
-      const users={...snapshot.users,users:snapshot.users.users.map(u=>u.id==='ellen'?{...u,name:'Ellen current name',active:false}:u)};
+      const users={...snapshot.users,users:snapshot.users.users.map(u=>u.id==='ellen'?{...u,name:'Ellen current <img src=x onerror=alert(1)>',active:false}:u)};
       window.mockFiles['data/users.json']=JSON.stringify(users);
       await window.EarlyBirdsStore.refresh();document.getElementById('bagelsTabButton').click();
     })()`);
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('#bagelsList > .bagel-card')].map(c=>c.dataset.bagelId)`),['new-a','new-b','new-zero','old-date']);
     assert.deepEqual(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.map(b=>b.id)`),['old-date','new-b','new-zero','new-a']);
     console.log('Bagels sort newest game date first, then precise creation time and stable ID, without mutating shared order');
-    assert(await evaluate(`document.querySelector('#bagelsList').textContent.includes('Mike <img src=x onerror=alert(1)>') && !document.querySelector('#bagelsList img') && document.querySelector('#bagelsList').textContent.includes('Ellen before rename') && !document.querySelector('#bagelsList').textContent.includes('Ellen current name')`));
-    console.log('Bagels display literal saved names, including inactive/renamed players, without requiring the deleted court');
+    assert(await evaluate(`!document.querySelector('#bagelsList').textContent.includes('Mike historical') && !document.querySelector('#bagelsList img') && !document.querySelector('#bagelsList').textContent.includes('Ellen before rename') && document.querySelector('#bagelsList').textContent.includes('Ellen current <img src=x onerror=alert(1)>') && window.EarlyBirdsStore.getSnapshot().state.bagels[1].losers[1].name==='Ellen before rename'`));
+    console.log('Bagels display literal current names, including inactive/renamed players, while preserving saved names and deleted-court history');
     assert(await evaluate(`document.querySelector('[data-bagel-id="new-b"] .bagel-score').textContent==='6–0 · Doubles' && document.querySelector('[data-bagel-id="new-a"] .bagel-score').textContent==='6–0 · Singles' && document.querySelector('[data-bagel-id="new-b"] .bagel-winners').getAttribute('aria-label')==='Winners' && document.querySelector('[data-bagel-id="new-b"] .bagel-losers').getAttribute('aria-label')==='Losers' && document.querySelector('#bagelsList .bagel-icon').getAttribute('aria-hidden')==='true' && document.querySelector('#bagelsList .bagel-winners .bagel-face').textContent==='🙂' && document.querySelector('#bagelsList .bagel-losers .bagel-face').textContent==='🙁'`));
     assert(await evaluate(`getComputedStyle(document.querySelector('#bagelsList .bagel-winners .player-chip')).color!==getComputedStyle(document.querySelector('#bagelsList .bagel-losers .player-chip')).color`));
     console.log('Singles/doubles cards show bagel/date/score and labelled green winners with smiles and red losers with sad faces');
@@ -777,6 +777,10 @@ async function main() {
     })()`);
     assert(await evaluate(`window.EarlyBirdsAuth.getSession().isAdmin && document.getElementById('adminPlayersList').children.length===9 && !document.getElementById('addPlayerButton').hidden`));
     console.log('Initial active player can choose Admin and manage active/inactive users; visitors have no controls');
+    assert(await evaluate(`!document.getElementById('adminPlayersDetails').open && document.getElementById('adminPlayersTitle').textContent.includes('active players')`));
+    await evaluate(`document.getElementById('adminPlayersTitle').click()`);
+    assert(await evaluate(`document.getElementById('adminPlayersDetails').open`));
+    console.log('Admin Players starts collapsed with active count and expands on demand');
     const usersBefore=await evaluate('window.EarlyBirdsStore.getSnapshot().users.users.length');
     await evaluate(`(async()=>{
       document.getElementById('addPlayerButton').click();document.getElementById('playerName').value='  Test Player 鳥  ';
@@ -793,8 +797,13 @@ async function main() {
       document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="edit"]').click();document.getElementById('playerName').value='Renamed Player 鳥';
       document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
     })()`);
-    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts[0].bookedBy===${JSON.stringify(playerId)} && document.querySelector('#gamesList .game-booker').textContent==='Renamed Player 鳥' && document.getElementById('bagelsList').textContent.includes('Test Player 鳥')`));
-    console.log('Rename updates current booking names while preserving stable references and recorded bagel names');
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts[0].bookedBy===${JSON.stringify(playerId)} && document.querySelector('#gamesList .game-booker').textContent==='Renamed Player 鳥' && document.getElementById('bagelsList').textContent.includes('Renamed Player 鳥') && !document.getElementById('bagelsList').textContent.includes('Test Player 鳥') && window.EarlyBirdsStore.getSnapshot().state.bagels[0].winners[0].name==='Test Player 鳥'`));
+    await evaluate(`(async()=>{document.getElementById('adminBagelsDetails').open=true;document.getElementById('manageBagelsButton').click();await new Promise(r=>setTimeout(r,100));document.getElementById('bagelSearch').value='Renamed Player';document.getElementById('bagelSearch').dispatchEvent(new Event('input'));})()`);
+    assert(await evaluate(`document.querySelector('#bagelSearchResults button').textContent.includes('Renamed Player 鳥') && !document.querySelector('#bagelSearchResults button').textContent.includes('Test Player 鳥')`));
+    await evaluate(`document.querySelector('#bagelSearchResults button').click()`);
+    assert(await evaluate(`document.getElementById('bagelDeleteDescription').textContent.includes('Renamed Player 鳥')`));
+    await evaluate(`document.getElementById('backToBagelsButton').click();document.getElementById('bagelSearch').value='';document.getElementById('closeManageBagelsButton').click()`);
+    console.log('Rename updates booking, Bagels and Admin search/review immediately, preserving stable references and saved names');
     await evaluate(`(async()=>{
       document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="toggle"]').click();document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
       document.getElementById('adminAddCourtButton').click();
@@ -872,6 +881,112 @@ async function main() {
     })()`);
     assert(await evaluate(`document.getElementById('adminPlayersList').children.length===0 && document.getElementById('addPlayerButton').hidden`));
     console.log('Leaving Admin clears all user-management controls');
+    await evaluate(`(async()=>{
+      document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=true;document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      const users=JSON.parse(window.mockFiles['data/users.json']);users.users.find(u=>u.id==='ellen').active=false;window.mockFiles['data/users.json']=JSON.stringify(users);
+      const base={date:'2026-10-16',time:'08:00',durationMinutes:60,code:'012345',createdAt:'2026-10-16T06:00:00Z',createdBy:'mike-ertl'};
+      const state={...window.EarlyBirdsStore.getSnapshot().state,courts:[{...base,id:'admin-a',courtNumber:1,bookedBy:'mike-ertl',green:['mike-ertl','ellen'],reserved:['arda']},{...base,id:'admin-b',courtNumber:2,bookedBy:'akiko',green:['akiko'],reserved:[]}],bagels:[{id:'admin-kept-history',sourceCourtId:'admin-a',date:'2026-10-16',winners:[{userId:'mike-ertl',name:'Mike recorded'}],losers:[{userId:'ellen',name:'Ellen recorded'}],createdAt:'2026-10-16T09:00:00Z',createdBy:'mike-ertl'}]};
+      window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();document.getElementById('adminTabButton').click();
+      window.adminCourt=id=>document.querySelector('#adminCourtsList [data-court-id="'+id+'"]');
+      window.adminMember=(id,user,status)=>[...window.adminCourt(id).querySelectorAll('.admin-member [data-admin-participation]')].find(b=>b.dataset.userId===user && b.dataset.adminParticipation===status);
+      window.adminPlace=async(id,user,status)=>{const button=window.adminMember(id,user,status);if(!button || button.disabled)throw new Error('Expected enabled Admin membership action');button.click();await new Promise(r=>setTimeout(r,150));};
+      window.adminPick=(id,user)=>{const select=window.adminCourt(id).querySelector('[data-admin-player-select]');select.value=user;select.dispatchEvent(new Event('change'));};
+      window.adminAdd=async(id,user,status)=>{window.adminPick(id,user);const button=window.adminCourt(id).querySelector('.admin-add-player [data-admin-participation="'+status+'"]');if(button.disabled)throw new Error('Expected enabled Admin add action');button.click();await new Promise(r=>setTimeout(r,150));};
+    })()`);
+    assert(await evaluate(`!document.querySelector('#gamesList [data-admin-participation]') && window.adminCourt('admin-a').querySelectorAll('.admin-member').length===3 && window.adminMember('admin-a','ellen','reserved').disabled && !window.adminMember('admin-a','ellen','none').disabled && ![...window.adminCourt('admin-a').querySelector('select').options].some(o=>o.value==='ellen')`));
+    console.log('Court-player controls live only in Admin; existing inactive members can be removed but not newly assigned');
+    await evaluate(`(async()=>{await window.adminPlace('admin-a','arda','green');await window.adminAdd('admin-a','dimitar','green');await window.adminAdd('admin-a','ivan','green');})()`);
+    assert(await evaluate(`(()=>{const c=window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a');return c.green.length===4 && c.reserved.includes('ivan') && window.adminCourt('admin-a').querySelector('.admin-participation-status').textContent.includes('Court full');})()`));
+    console.log('Admin promotes a reserve and adds players to completed court; fifth player becomes reserve with explanation');
+    await evaluate(`(async()=>{await window.adminPlace('admin-a','ellen','none');})()`);
+    assert(await evaluate(`(()=>{const c=window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a');return c.green.length===3 && c.reserved.includes('ivan') && !c.green.includes('ivan');})()`));
+    await evaluate(`(async()=>{
+      await window.adminPlace('admin-a','ivan','green');await window.adminAdd('admin-a','rob','reserved');await window.adminPlace('admin-a','mike-ertl','reserved');
+      await window.adminPlace('admin-a','rob','green');await window.adminPlace('admin-a','mike-ertl','none');await window.adminPlace('admin-a','dimitar','none');window.adminPick('admin-a','akiko');
+    })()`);
+    assert(await evaluate(`window.adminCourt('admin-a').querySelector('.admin-add-player [data-admin-participation="green"]').disabled && !window.adminCourt('admin-a').querySelector('.admin-add-player [data-admin-participation="reserved"]').disabled`));
+    console.log('Admin moves and removes green/reserve players without auto-promotion; overlapping green assignment is disabled');
+    await evaluate(`(async()=>{await window.adminAdd('admin-a','akiko','reserved');})()`);
+    assert(await evaluate(`window.adminMember('admin-a','akiko','green').disabled`));
+    await evaluate(`(async()=>{await window.adminPlace('admin-b','akiko','none');await window.adminPlace('admin-a','akiko','green');await window.adminAdd('admin-a','tim','reserved');await window.adminPlace('admin-a','akiko','none');})()`);
+    await evaluate(`(async()=>{
+      window.racingState=JSON.parse(window.mockFiles['data/current.json']);window.racingState.courts.find(c=>c.id==='admin-a').green.push('susan');
+      await window.adminPlace('admin-a','tim','green');
+    })()`);
+    assert(await evaluate(`(()=>{const c=window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a');return c.green.length===4 && c.green.includes('susan') && c.reserved.includes('tim') && window.adminCourt('admin-a').querySelector('.admin-participation-status').textContent.includes('Court full');})()`));
+    console.log('Admin last-place SHA conflict preserves the competing join and keeps requested player reserved');
+    await evaluate(`(async()=>{window.denySave=true;await window.adminPlace('admin-a','rob','none');})()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a').green.includes('rob') && window.adminCourt('admin-a').querySelector('.admin-participation-error').textContent.includes('denied')`));
+    await evaluate(`(async()=>{window.denySave=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,150));})()`);
+    assert(await evaluate(`!window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a').green.includes('rob') && window.adminCourt('admin-a').querySelector('.admin-participation-status').textContent.includes('removed')`));
+    console.log('Rejected Admin assignment keeps membership unchanged and global retry updates Admin feedback');
+    await evaluate(`(async()=>{window.loseAckOnce=true;await window.adminAdd('admin-a','dimitar','green');})()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && [...document.querySelectorAll('[data-admin-participation],[data-admin-player-select]')].every(control=>control.disabled)`));
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a').green.filter(id=>id==='dimitar').length===1 && window.adminCourt('admin-a').querySelector('.admin-participation-status').textContent.includes('playing')`));
+    console.log('Uncertain Admin assignment freezes controls and reconciles one membership');
+    await evaluate(`(async()=>{
+      await window.adminPlace('admin-a','ivan','none');window.adminPick('admin-a','akiko');
+      const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.find(c=>c.id==='admin-b').green=['akiko'];window.mockFiles['data/current.json']=JSON.stringify(state);
+    })()`);
+    const staleAdminWrites=await evaluate('window.mockWriteAttempts');
+    await evaluate(`(async()=>{await window.adminAdd('admin-a','akiko','green');})()`);
+    assert.equal(await evaluate('window.mockWriteAttempts'),staleAdminWrites);
+    assert(await evaluate(`window.adminCourt('admin-a').querySelector('.admin-add-player [data-admin-participation="green"]').disabled && window.adminCourt('admin-a').querySelector('.admin-participation-error').textContent.includes('Choose Reserve')`));
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels[0].winners[0].name==='Mike recorded' && window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a').bookedBy==='mike-ertl'`));
+    console.log('Fresh overlap validation rejects stale Admin intent, refreshes controls and preserves bagel history/ownership');
+    for(const width of [320,390,768,1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<540});
+      assert(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'));
+    }
+    if(process.env.TEST_ADMIN_COURT_SCREENSHOT_PATH) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:1000,deviceScaleFactor:1,mobile:true});
+      await evaluate(`window.adminCourt('admin-a').scrollIntoView()`);
+      const shot=await cdp('Page.captureScreenshot',{format:'png'});await fs.writeFile(process.env.TEST_ADMIN_COURT_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+    }
+    await evaluate(`(async()=>{
+      const state=JSON.parse(window.mockFiles['data/current.json']),base=state.bagels[0];
+      state.bagels=Array.from({length:65},(_,i)=>({...base,id:'archive-'+i,date:new Date(Date.UTC(2026,0,1+i)).toISOString().slice(0,10),winners:[{userId:'mike-ertl',name:'Archive '+i}]}));
+      window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();
+      document.getElementById('adminPlayersDetails').open=false;
+      document.getElementById('adminBagelsDetails').open=false;
+    })()`);
+    assert(await evaluate(`!document.getElementById('adminBagelsDetails').open && document.getElementById('adminBagelCount').textContent==='65 recorded' && !document.querySelector('#bagelsList [data-delete-bagel-id]')`));
+    await evaluate(`(async()=>{document.querySelector('#adminBagelsDetails summary').click();document.getElementById('manageBagelsButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`document.getElementById('manageBagelsDialog').open && document.querySelectorAll('[data-delete-bagel-id]').length===50 && document.getElementById('bagelSearchCount').textContent.includes('Refine')`));
+    for(const width of [320,390,768,1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height:800,deviceScaleFactor:1,mobile:width<540});
+      assert(await evaluate(`(()=>{const list=document.getElementById('bagelSearchResults'),close=document.getElementById('closeManageBagelsButton');list.scrollTop=list.scrollHeight;return list.scrollHeight>list.clientHeight && close.getBoundingClientRect().top>=0 && close.getBoundingClientRect().bottom<innerHeight && document.documentElement.scrollWidth<=innerWidth;})()`));
+    }
+    const beforeCancel=await evaluate('window.mockWriteAttempts');
+    await evaluate(`document.getElementById('bagelSearch').value='2026-03-06';document.getElementById('bagelSearch').dispatchEvent(new Event('input'));document.querySelector('[data-delete-bagel-id="archive-64"]').click()`);
+    assert(await evaluate(`document.getElementById('bagelDeleteDescription').textContent.includes('2026-03-06') && !document.getElementById('bagelDeleteDescription').textContent.includes('Archive 64') && !document.getElementById('bagelDeleteReview').hidden`));
+    await evaluate(`document.getElementById('closeManageBagelsButton').click()`);
+    assert.equal(await evaluate('window.mockWriteAttempts'),beforeCancel);
+    await evaluate(`(async()=>{document.getElementById('manageBagelsButton').click();await new Promise(r=>setTimeout(r,100));window.denySave=true;document.getElementById('confirmBagelDeleteButton').click();await new Promise(r=>setTimeout(r,150));})()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.length===65 && document.getElementById('bagelDeleteError').textContent.includes('denied') && document.getElementById('confirmBagelDeleteButton').textContent==='Retry deletion'`));
+    await evaluate(`(async()=>{
+      window.denySave=false;window.racingState=JSON.parse(window.mockFiles['data/current.json']);window.racingState.bagels.push({...window.racingState.bagels[0],id:'concurrent-set'});
+      document.getElementById('confirmBagelDeleteButton').click();await new Promise(r=>setTimeout(r,200));
+    })()`);
+    assert(await evaluate(`(()=>{const s=window.EarlyBirdsStore.getSnapshot().state;return s.bagels.length===65 && !s.bagels.some(b=>b.id==='archive-64') && s.bagels.some(b=>b.id==='concurrent-set') && s.courts.length===2 && document.getElementById('bagelDeleteStatus').textContent.includes('deleted') && !document.querySelector('#bagelsList [data-bagel-id="archive-64"]');})()`));
+    console.log('Collapsed Admin Bagels opens bounded searchable popup, cancels safely and confirms deletion; failed retry preserves concurrent sets and courts');
+    await evaluate(`(async()=>{
+      document.getElementById('backToBagelsButton').click();document.getElementById('bagelSearch').value='2026-03-05';document.getElementById('bagelSearch').dispatchEvent(new Event('input'));document.querySelector('[data-delete-bagel-id="archive-63"]').click();
+      window.loseAckOnce=true;document.getElementById('confirmBagelDeleteButton').click();await new Promise(r=>setTimeout(r,200));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && document.getElementById('backToBagelsButton').disabled && !document.getElementById('closeManageBagelsButton').disabled`));
+    await evaluate(`(async()=>{document.getElementById('closeManageBagelsButton').click();document.getElementById('manageBagelsButton').click();window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,200));})()`);
+    assert(await evaluate(`document.getElementById('bagelDeleteStatus').textContent.includes('deleted') && !window.EarlyBirdsStore.getSnapshot().state.bagels.some(b=>b.id==='archive-63')`));
+    await evaluate(`document.getElementById('backToBagelsButton').click();document.getElementById('bagelSearch').value='no-such-player';document.getElementById('bagelSearch').dispatchEvent(new Event('input'))`);
+    assert(await evaluate(`document.getElementById('bagelSearchCount').textContent==='0 matching bagels'`));
+    await evaluate(`document.getElementById('closeManageBagelsButton').click();document.querySelector('#adminBagelsDetails summary').click()`);
+    assert(await evaluate(`!document.getElementById('adminBagelsDetails').open`));
+    console.log('Uncertain deletion retains selection across close/reopen, global retry reconciles and search handles no matches; layouts keep Close visible');
+    await evaluate(`document.getElementById('adminBagelsDetails').open=true;document.getElementById('manageBagelsButton').click()`);
+    await evaluate(`(async()=>{document.getElementById('manageBagelsDialog').close();document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`!document.querySelector('[data-admin-participation]') && document.getElementById('adminTabButton').hidden`));
+    console.log('Court-player controls fit phone/desktop layouts and disappear when Admin mode ends');
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');
   } finally {

@@ -137,6 +137,7 @@
           }
           break;
         case "participation.set": {
+          if (action.asAdmin) admin();
           check(court, "This court no longer exists.");
           check(court.date >= clock.date, "This game has expired. Refresh to see the latest games.");
           var playerId = action.userId || actor.userId;

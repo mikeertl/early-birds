@@ -3,9 +3,89 @@
   function init(options) {
     var auth = options.auth, store = options.store, model = options.model;
     var el = {}, drafts = new Map(), draft = null, latest = null, saving = false;
+    var deletion = null;
     ["bagelDialog", "bagelForm", "bagelContext", "bagelEligibility", "bagelFields", "bagelDateFields", "bagelDate", "bagelFormat",
       "bagelWinner1", "bagelWinner2", "bagelLoser1", "bagelLoser2", "bagelWinner2Row", "bagelLoser2Row", "bagelPlayersHelp",
       "existingBagels", "existingBagelsList", "bagelStatus", "bagelError", "saveBagelButton", "anotherBagelButton", "refreshBagelButton", "closeBagelButton"].forEach(function (id) { el[id] = document.getElementById(id); });
+    ["adminBagelCount", "manageBagelsButton", "manageBagelsDialog", "closeManageBagelsButton", "bagelSearchArea", "bagelSearch", "bagelSearchCount",
+      "bagelSearchResults", "bagelDeleteReview", "bagelDeleteDescription", "bagelDeleteWarning", "confirmBagelDeleteButton", "backToBagelsButton", "bagelDeleteStatus", "bagelDeleteError"]
+      .forEach(function (id) { el[id] = document.getElementById(id); });
+    function playerName(player, data) {
+      var directory = data || latest;
+      var user = directory && directory.users.users.find(function (item) { return item.id === player.userId; });
+      return user ? user.name : player.name;
+    }
+    function bagelLabel(bagel) {
+      return bagel.date + ": " + bagel.winners.map(function (p) { return playerName(p); }).join(" & ") + " beat " +
+        bagel.losers.map(function (p) { return playerName(p); }).join(" & ") + " 6–0 · " + (bagel.winners.length === 1 ? "Singles" : "Doubles") +
+        " · Recorded " + new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "short", timeStyle: "medium" }).format(new Date(bagel.createdAt));
+    }
+    function deleteRecovery() {
+      var recovery = store.getRecovery();
+      return deletion && recovery && recovery.action.type === "bagel.remove" && recovery.action.bagelId === deletion.bagel.id ? recovery : null;
+    }
+    function renderManager() {
+      var entries = latest ? latest.state.bagels : [], recovery = store.getRecovery();
+      var blocked = saving || Boolean(recovery && recovery.outcome === "uncertain");
+      el.adminBagelCount.textContent = entries.length + " recorded";
+      el.manageBagelsButton.disabled = saving || (blocked && !deleteRecovery());
+      if (!el.manageBagelsDialog.open) return;
+      el.bagelSearchArea.hidden = Boolean(deletion); el.bagelDeleteReview.hidden = !deletion;
+      el.bagelDeleteStatus.textContent = deletion && deletion.pending ? "Deleting bagel…" : deletion && deletion.done ? "Bagel deleted. The lists have been updated." : "";
+      el.bagelDeleteError.textContent = deletion ? (deleteRecovery() && deleteRecovery().outcome === "uncertain" ? "Deletion not confirmed. Retry this deletion to check the saved result. " : "") + deletion.error : "";
+      if (deletion) {
+        var exists = entries.some(function (b) { return b.id === deletion.bagel.id; });
+        el.bagelDeleteDescription.textContent = bagelLabel(deletion.bagel);
+        el.bagelDeleteWarning.textContent = deletion.done ? "" : !exists && !deleteRecovery() ? "This bagel has already been removed." : "Delete this 6–0 set permanently? Other sets and courts will be kept.";
+        el.confirmBagelDeleteButton.hidden = deletion.done || (!exists && !deleteRecovery());
+        el.confirmBagelDeleteButton.disabled = saving || deletion.pending || (blocked && !deleteRecovery());
+        el.confirmBagelDeleteButton.textContent = deletion.pending ? "Deleting…" : deleteRecovery() ? "Retry deletion" : "Delete bagel";
+        el.backToBagelsButton.disabled = blocked || deletion.pending;
+      } else {
+        var words = el.bagelSearch.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+        var matches = entries.filter(function (bagel) { var label = bagelLabel(bagel).toLocaleLowerCase(); return words.every(function (word) { return label.includes(word); }); })
+          .sort(function (a, b) { return b.date.localeCompare(a.date) || Date.parse(b.createdAt) - Date.parse(a.createdAt) || a.id.localeCompare(b.id); });
+        el.bagelSearchCount.textContent = matches.length > 50 ? "Showing 50 of " + matches.length + " matches. Refine your search to find more." : matches.length + " matching bagels";
+        el.bagelSearchResults.replaceChildren();
+        matches.slice(0, 50).forEach(function (bagel) {
+          var item = node("li"), button = node("button", "button secondary", bagelLabel(bagel));
+          button.type = "button"; button.dataset.deleteBagelId = bagel.id; button.disabled = blocked;
+          button.addEventListener("click", function () {
+            if (!auth.requireWrite({ admin: true }) || button.disabled) return;
+            deletion = { bagel: bagel, pending: false, submitted: false, done: false, error: "" };
+            renderManager(); el.backToBagelsButton.focus();
+          });
+          item.appendChild(button); el.bagelSearchResults.appendChild(item);
+        });
+      }
+    }
+    el.manageBagelsButton.addEventListener("click", async function () {
+      if (!auth.requireWrite({ admin: true }) || el.manageBagelsButton.disabled) return;
+      latest = store.getSnapshot(); el.manageBagelsDialog.showModal(); renderManager();
+      if (!store.getRecovery()) {
+        try { latest = await store.refresh(); } catch (_) { /* The shared refresh notice provides retry. */ }
+        renderManager();
+      }
+    });
+    el.bagelSearch.addEventListener("input", renderManager);
+    el.backToBagelsButton.addEventListener("click", function () {
+      if (el.backToBagelsButton.disabled) return;
+      deletion = null; renderManager(); el.bagelSearch.focus();
+    });
+    el.closeManageBagelsButton.addEventListener("click", function () { el.manageBagelsDialog.close(); });
+    el.manageBagelsDialog.addEventListener("close", function () {
+      var session = auth.getSession();
+      (session && session.isAdmin ? el.manageBagelsButton : document.getElementById("gamesTabButton")).focus({ preventScroll: true });
+    });
+    el.confirmBagelDeleteButton.addEventListener("click", async function () {
+      if (!deletion || deletion.done || el.confirmBagelDeleteButton.disabled || !auth.requireWrite({ admin: true })) return;
+      var value = deletion, retrying = deleteRecovery();
+      value.pending = true; value.submitted = true; value.error = ""; renderManager();
+      try {
+        if (retrying) await store.retry(); else await store.mutate({ type: "bagel.remove", bagelId: value.bagel.id });
+      } catch (error) { value.error = error.message; }
+      finally { value.pending = false; renderManager(); }
+    });
     var playerFields = ["bagelWinner1", "bagelWinner2", "bagelLoser1", "bagelLoser2"];
     function today() { return model.londonClock(new Date().toISOString()).date; }
     function source() { return latest && draft && latest.state.courts.find(function (court) { return court.id === draft.courtId; }); }
@@ -51,7 +131,7 @@
       el.existingBagels.hidden = entries.length === 0; el.existingBagelsList.replaceChildren();
       entries.forEach(function (bagel) {
         var item = document.createElement("li");
-        item.textContent = bagel.date + ": " + bagel.winners.map(function (player) { return player.name; }).join(" & ") + " beat " + bagel.losers.map(function (player) { return player.name; }).join(" & ") + " 6–0";
+        item.textContent = bagel.date + ": " + bagel.winners.map(function (player) { return playerName(player); }).join(" & ") + " beat " + bagel.losers.map(function (player) { return playerName(player); }).join(" & ") + " 6–0";
         el.existingBagelsList.appendChild(item);
       });
       var values = draft.values, doubles = values.format === "doubles";
@@ -149,10 +229,19 @@
       catch (error) { value.error = error.message; }
       finally { value.pending = false; if (draft === value) render(); }
     });
-    window.addEventListener("early-birds-session-change", function () { capture(); el.bagelDialog.close(); draft = null; });
+    window.addEventListener("early-birds-session-change", function () {
+      capture(); el.bagelDialog.close(); draft = null;
+      el.manageBagelsDialog.close(); deletion = null; el.bagelSearch.value = "";
+    });
     store.subscribe(function (event) {
       saving = event.status.phase === "saving";
       if (event.data) latest = event.data;
+      if (deletion && deletion.submitted) {
+        if (event.status.save.outcome === "saved" && event.data && !event.data.state.bagels.some(function (bagel) { return bagel.id === deletion.bagel.id; })) {
+          deletion.done = true; deletion.pending = false; deletion.error = "";
+        }
+        if (deleteRecovery() && event.status.phase === "error") { deletion.pending = false; deletion.error = event.status.message; }
+      }
       drafts.forEach(function (value) {
         if (value.submitted && event.status.save.outcome === "saved" && event.data && event.data.state.bagels.some(function (bagel) { return bagel.id === value.id; })) {
           value.completed = true; value.pending = false; value.error = "";
@@ -160,6 +249,7 @@
         if (recoveryFor(value) && event.status.phase === "error") { value.pending = false; value.error = event.status.message; }
       });
       render();
+      renderManager();
     });
     function node(tag, className, text) {
       var value = document.createElement(tag);
@@ -194,7 +284,7 @@
           var group = node("section", "bagel-team-result " + team[3]); group.setAttribute("aria-label", team[0]);
           var label = node("h4", "bagel-team-label"); label.append(icon(team[1], "bagel-face"), document.createTextNode(" " + team[0]));
           var players = node("ul", "player-list");
-          team[2].forEach(function (player) { players.appendChild(node("li", "player-chip", player.name)); });
+          team[2].forEach(function (player) { players.appendChild(node("li", "player-chip", playerName(player, data))); });
           group.append(label, players); teams.appendChild(group);
         });
         card.append(header, teams); list.appendChild(card);

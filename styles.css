@@ -35,11 +35,24 @@
 }
 
 .admin-players-list { list-style: none; padding: 0; display: grid; gap: 10px; }
+.admin-players-panel { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.admin-players-panel summary { min-height: 44px; padding: 10px 0; cursor: pointer; font-weight: 700; }
+.admin-players-panel summary span { margin-left: 8px; font-weight: 400; color: var(--muted); font-size: 14px; }
 .admin-player { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
 .admin-player-details { min-width: 0; overflow-wrap: anywhere; flex: 1 1 160px; }
 .admin-player-name { display: block; font-weight: 700; }
 .admin-player-state { color: var(--muted); font-size: 14px; }
 .admin-player-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.admin-court-players { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.admin-player-group + .admin-player-group { margin-top: 20px; }
+.admin-members { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.admin-member { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.admin-member .game-actions { margin: 0; }
+.admin-member .field-help { flex-basis: 100%; margin: 0; }
+.admin-add-player { margin-top: 20px; }
+.admin-add-player label { display: block; font-weight: 700; margin-bottom: 6px; }
+.admin-add-player .game-actions { margin-top: 10px; }
 
 body {
   margin: 0;
@@ -395,6 +408,13 @@ dialog {
 dialog::backdrop {
   background: rgba(20, 35, 28, 0.5);
 }
+
+.bagel-manager-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bagel-manager-heading h2 { margin: 0; }
+.bagel-search-results { list-style: none; margin: 0; padding: 0; max-height: 40dvh; overflow-y: auto; }
+.bagel-search-results li + li { margin-top: 8px; }
+.bagel-search-results button { width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+#bagelDeleteDescription { overflow-wrap: anywhere; }
 
 form > label:not(.check-label) {
   display: block;

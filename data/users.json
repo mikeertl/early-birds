@@ -3,7 +3,7 @@
   "updatedAt": "2026-10-14T00:00:00Z",
   "updatedBy": "mike-ertl",
   "users": [
-    { "id": "mike-ertl", "name": "Mike Ertl", "active": true },
+    { "id": "mike-ertl", "name": "Mike", "active": true },
     { "id": "akiko", "name": "Akiko", "active": true },
     { "id": "arda", "name": "Arda", "active": true },
     { "id": "dimitar", "name": "Dimitar", "active": true },

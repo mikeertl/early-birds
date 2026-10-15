@@ -29,7 +29,7 @@
       el.playerTitle.textContent = draft.mode === "add" ? "Add player" : draft.mode === "toggle" ? (draft.values.active ? "Reactivate player" : "Deactivate player") : "Edit player";
       el.playerDescription.textContent = !draft.values.active && draft.id === draft.actorId ?
         "Deactivating your own player will sign you out. Another active player can choose Admin mode to reactivate you. Existing bookings and bagel history are kept." :
-        "Inactive players cannot sign in or be selected for new bookings. Existing bookings and recorded bagel names are kept. Load latest details replaces unsaved changes.";
+        "Inactive players cannot sign in or be selected for new bookings. Existing bookings and bagel results are kept. Load latest details replaces unsaved changes.";
       el.playerFields.disabled = pending || uncertain;
       el.savePlayerButton.disabled = pending;
       el.savePlayerButton.textContent = draft.pending ? "Saving…" : retrying ? "Retry save" : draft.mode === "toggle" ? (draft.values.active ? "Reactivate player" : "Deactivate player") : "Save player";

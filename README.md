@@ -66,8 +66,8 @@ Games shows booking cards, Bagels shows saved result cards, and Admin provides c
 Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
 cards. Tasks 3.3–3.4 add participation controls and action refresh; 3.5 adds court
 editing and deletion. Tasks 4.1–4.3 add Bagel eligibility, reporting and the result
-list. Task 4.4 adds Admin player-directory management; assigning other players
-to courts remains 4.5. Branding artwork and
+list. Tasks 4.4–4.5 add Admin player-directory management and court-player
+assignments. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -113,13 +113,16 @@ visible until midnight.
 
 ## Managing players (task 4.4)
 
-In **Admin → Players**, use **+ Add player**, **Rename**, **Deactivate** or
+In **Admin**, expand **Players** to use **+ Add player**, **Rename**, **Deactivate** or
 **Reactivate**. Names are trimmed and must be nonempty; duplicate names are
 rejected ignoring case and surrounding spaces, including inactive players. Use
 reactivation for a returning player rather than creating a new identity.
+Players starts collapsed to keep courts near the top; its header shows the active
+player count. It stays open or closed across refreshes within the page.
 
 Each player keeps an opaque stable ID. Renaming updates current game names;
-recorded bagels retain their saved names. Deactivation removes the player from
+bagels display their current names too, while retaining saved names as a fallback.
+Deactivation removes the player from
 sign-in and new-booker choices without removing existing court ownership or
 green/reserve membership. Inactive players remain visible in Admin and can be
 reactivated under the same ID. Historical bagel entry can still select them for
@@ -135,7 +138,31 @@ Forms retain failed inputs when closed/reopened in the same tab, and one ID is
 reused for creation retries. Unconfirmed saves lock inputs until the original
 change is reconciled. Independent field edits merge; same-field conflicts keep
 typed values and offer **Load latest details** for explicit review/replacement.
-Controls disappear when Admin mode ends. Court player assignments remain 4.5.
+Controls disappear when Admin mode ends.
+
+## Admin court-player assignments (task 4.5)
+
+In **Admin → Court management**, each court lists Playing and Reserved players.
+Use **Make reserve**, **Make playing** or **Remove** beside an existing player.
+The active-player picker adds someone using **Add to playing** or **Add reserve**.
+These controls also work on today's completed courts, so Admin can fill in the
+players for a missed booking before reporting its bagels. Earlier dates still
+expire under the London-date cleanup policy.
+
+The same player rules apply: at most four green places, no simultaneous green
+places on different courts, no duplicate membership and no automatic promotion.
+A full-court Add to playing becomes a reserve with an explanation. Overlap actions
+are disabled when visible and validated again against fresh shared data at save;
+overlapping reserves are allowed. Existing inactive members can be removed, but
+must be reactivated in Players before any new assignment or move to reserve.
+
+Player selection survives a failed save and refresh while still eligible. Pending
+changes disable controls; uncertain outcomes freeze conflicting actions until the
+global **Retry last change** reconciles the original target player/status. Each
+Admin court reports the named player's confirmed outcome or error. Membership
+changes preserve the booker, other courts and existing bagel snapshots. Games
+retains only own-player participation controls. Admin court editing/booker and
+confirmed deletion controls remain on the same Admin cards.
 
 ## Reporting bagels (tasks 4.1–4.2)
 
@@ -148,7 +175,8 @@ and daylight-saving changes. Opening it rechecks current shared data; failed
 reads or changed membership cannot confirm stale eligibility.
 
 Admin reporting is in the **Admin** tab: completed courts have a Bagel action,
-and **Add historical bagel** does not require a live court or green membership.
+and **Add historical bagel**, inside the collapsed **Bagels** section, does not
+require a live court or green membership.
 Games keeps its ordinary green-player restriction even with Admin mode on.
 Historical entry must use a past/current date; saves enforce the existing rules.
 
@@ -180,12 +208,30 @@ Singles/Doubles, green winners with smiles and red losers with sad faces. Text
 labels identify both teams independently of colour; decorative icons are hidden
 from screen readers. Teams sit side by side on wider screens and stack on phones.
 
-The list uses recorded name snapshots, so inactive/renamed players and deleted
-source courts do not change history. Names render as literal text, and dates stay
+The list, recorded-set previews and Admin search/deletion review resolve current
+names by stable player ID, including inactive players. Renaming updates those
+screens after a successful save or refresh without rewriting historical results.
+Saved name snapshots remain a fallback if a directory entry is unavailable;
+deleted source courts do not affect results. Names render as literal text, and dates stay
 on the recorded calendar day regardless of the device timezone. Visitors can view
 the list; a failed refresh keeps the last good results with the shared stale-data
-notice. An empty result list shows the labelled empty state. Admin deletion remains
-task 4.6.
+notice. An empty result list shows the labelled empty state.
+
+In **Admin**, expand **Bagels** and choose **Find / delete a bagel**. The section
+starts collapsed and shows the recorded count. The popup searches current player
+names and dates (`YYYY-MM-DD`), newest first, with at most 50 matches at once;
+refine the search to find older sets. Only the results scroll, keeping **Close**
+accessible. Select a result to review its date, teams, format and recording time,
+then confirm **Delete bagel**. **Back to results**, **Close** or Escape leaves an
+unconfirmed selection unchanged. Collapse the section to return to courts.
+
+Only a signed-in Admin can delete. A confirmed save removes exactly that set and
+updates the public list and Admin count, preserving courts and other sets.
+Rejected deletions keep the selection for retry. An unconfirmed write locks the
+selection until **Retry deletion** or the global retry reconciles the same ID;
+the popup can still be closed and reopened. Concurrent additions are retained,
+and retrying an already-deleted set does not delete anything else. Session changes
+close the popup and clear its selection.
 
 The branding bird was confirmed as a **mistle thrush**; artwork remains task 5.1.
 
@@ -254,7 +300,7 @@ concurrent change cannot create a fifth green player or duplicate membership.
 If someone takes the last place before your join is saved, the refreshed card
 explains that you are reserved. Successful card messages clear when that game's
 membership changes, so an old full-court message cannot hide a newly open place.
-Admin assignments use the same rules in the model; their management UI is 4.5.
+Admin assignments use the same rules in the model and are managed in the Admin tab.
 
 Buttons are disabled during saves to prevent duplicate clicks. Membership colours
 change after confirmation, and each card reports its outcome. Rejected changes
@@ -314,7 +360,7 @@ Supported actions for subsequent forms are:
 - `court.add` with `court: { id, date, time, courtNumber, code, bookedBy }`;
 - `court.patch` with `courtId`, `changes` and matching `expected` original field values;
 - `court.remove` with `courtId`;
-- `participation.set` with `courtId`, optional `userId`, and `status: "green" | "reserved" | "none"`;
+- `participation.set` with `courtId`, optional `userId`, and `status: "green" | "reserved" | "none"`; Admin controls also set `asAdmin: true`, requiring Admin even when changing their own place;
 - `bagel.add` with `bagel: { id, sourceCourtId, date, winnerIds, loserIds }` and optional `asPlayer: true` to retain ordinary-player restrictions in Games even in Admin mode;
 - `bagel.remove` with `bagelId`;
 - `courts.cleanup` (removes prior London dates; automatic refresh/write cleanup and local midnight checks are enabled);
