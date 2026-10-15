@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T17:26:36.860Z",
+  "updatedAt": "2026-10-15T17:26:57.326Z",
   "updatedBy": "ellen",
   "courts": [
     {
@@ -64,9 +64,7 @@
       "code": "443459",
       "bookedBy": "ellen",
       "durationMinutes": 60,
-      "green": [
-        "ellen"
-      ],
+      "green": [],
       "reserved": [],
       "createdAt": "2026-10-15T17:26:36.860Z",
       "createdBy": "ellen"
