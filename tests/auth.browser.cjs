@@ -69,7 +69,13 @@ async function main() {
       window.mockFiles = {};
       window.mockWriteAttempts = 0;
       window.fetch = async (url, options = {}) => {
-        if (!String(url).startsWith('https://api.github.com/')) return realFetch(url, options);
+        if (!String(url).startsWith('https://api.github.com/')) {
+          if (new URL(url, location.href).pathname.endsWith('/data/current.json')) {
+            const data=await(await realFetch(url,options)).json();
+            return new Response(JSON.stringify({...data,courts:[],bagels:[]}));
+          }
+          return realFetch(url, options);
+        }
         if (String(url).includes('/contents/')) {
           if (window.failShared) return new Response('{}', {status:503});
           const file = String(url).includes('users.json') ? 'data/users.json' : 'data/current.json';
@@ -82,7 +88,11 @@ async function main() {
             if (window.loseAckOnce) {window.loseAckOnce=false;window.failShared=true;throw new TypeError('Simulated lost response');}
             return new Response(JSON.stringify({content:{sha:'test-sha'}}));
           }
-          const data = window.mockFiles[file] || await (await realFetch(file)).text();
+          let data = window.mockFiles[file];
+          if (!data) {
+            const initial=await(await realFetch(file)).json();
+            data=JSON.stringify(file==='data/current.json'?{...initial,courts:[],bagels:[]}:initial);
+          }
           return new Response(JSON.stringify({ type:'file', encoding:'base64', content:btoa(data), sha:'test-sha' }));
         }
         if (options.method && options.method !== 'GET') throw new Error('Unexpected write');

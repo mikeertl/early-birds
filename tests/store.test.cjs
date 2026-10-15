@@ -10,7 +10,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../config.js'), 'utf8')
 const config = context.window.EarlyBirdsConfig;
 const model = createModel(config);
 const seedUsers = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/users.json'), 'utf8'));
-const seedState = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/current.json'), 'utf8'));
+const seedState = { ...JSON.parse(fs.readFileSync(path.join(__dirname, '../data/current.json'), 'utf8')), courts: [], bagels: [] };
 const now = '2026-10-14T10:00:00Z';
 const clone = value => JSON.parse(JSON.stringify(value));
 function court(id = 'court-a', extra = {}) {
