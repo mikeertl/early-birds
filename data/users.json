@@ -1,16 +1,52 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T00:00:00Z",
+  "updatedAt": "2026-10-15T12:56:38.027Z",
   "updatedBy": "mike-ertl",
   "users": [
-    { "id": "mike-ertl", "name": "Mike", "active": true },
-    { "id": "akiko", "name": "Akiko", "active": true },
-    { "id": "arda", "name": "Arda", "active": true },
-    { "id": "dimitar", "name": "Dimitar", "active": true },
-    { "id": "ellen", "name": "Ellen", "active": true },
-    { "id": "ivan", "name": "Ivan", "active": true },
-    { "id": "rob", "name": "Rob", "active": true },
-    { "id": "susan", "name": "Susan", "active": true },
-    { "id": "tim", "name": "Tim", "active": true }
+    {
+      "id": "mike-ertl",
+      "name": "Mike",
+      "active": true
+    },
+    {
+      "id": "akiko",
+      "name": "Akiko",
+      "active": true
+    },
+    {
+      "id": "arda",
+      "name": "Arda",
+      "active": true
+    },
+    {
+      "id": "dimitar",
+      "name": "Dimitar",
+      "active": true
+    },
+    {
+      "id": "ellen",
+      "name": "Ellen",
+      "active": true
+    },
+    {
+      "id": "ivan",
+      "name": "Ivan",
+      "active": true
+    },
+    {
+      "id": "rob",
+      "name": "Rob",
+      "active": true
+    },
+    {
+      "id": "susan",
+      "name": "Susan",
+      "active": true
+    },
+    {
+      "id": "tim",
+      "name": "Tim",
+      "active": true
+    }
   ]
 }
