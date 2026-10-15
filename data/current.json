@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T11:01:29.431Z",
-  "updatedBy": "ellen",
+  "updatedAt": "2026-10-15T11:01:48.012Z",
+  "updatedBy": "akiko",
   "courts": [
     {
       "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
@@ -30,7 +30,8 @@
       "green": [
         "mike-ertl",
         "dimitar",
-        "ellen"
+        "ellen",
+        "akiko"
       ],
       "reserved": [],
       "createdAt": "2026-10-15T10:59:40.974Z",
