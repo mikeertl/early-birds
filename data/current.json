@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T17:27:17.293Z",
-  "updatedBy": "ellen",
+  "updatedAt": "2026-10-15T17:31:14.242Z",
+  "updatedBy": "akiko",
   "courts": [
     {
       "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
@@ -43,7 +43,7 @@
       "id": "court-582e3da4-a1dc-44b6-b400-9d55905ac6bd",
       "date": "2026-10-19",
       "time": "08:00",
-      "courtNumber": 5,
+      "courtNumber": 6,
       "code": "443459",
       "bookedBy": "akiko",
       "durationMinutes": 60,
