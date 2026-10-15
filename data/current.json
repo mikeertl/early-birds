@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T13:02:18.805Z",
+  "updatedAt": "2026-10-15T13:02:53.964Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
       "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
       "date": "2026-10-16",
       "time": "08:00",
-      "courtNumber": 6,
-      "code": "111222",
+      "courtNumber": 5,
+      "code": "476803",
       "bookedBy": "mike-ertl",
       "durationMinutes": 60,
       "green": [
