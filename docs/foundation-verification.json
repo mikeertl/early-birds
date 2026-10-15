@@ -1,0 +1,31 @@
+{
+  "task": "2.6",
+  "result": "passed",
+  "running": false,
+  "checks": [
+    "Dedicated test repository accessible",
+    "Unique test files initialised; existing repository files untouched",
+    "Real GitHub sign-in: mike-ertl",
+    "Real GitHub sign-in: akiko",
+    "Two independent browser sessions retain different players",
+    "Second session sees first session booking after refresh",
+    "First session sees second session join after refresh",
+    "Real GitHub SHA conflict observed and reconciled",
+    "Both concurrent changes retained in GitHub",
+    "Injected rejected write retains input and offers retry",
+    "Rejected write did not reach live shared data",
+    "Retry persists original change to GitHub and reaches second session",
+    "Sign-out preserves Longbourn storage",
+    "Other independent browser session remains signed in"
+  ],
+  "error": "",
+  "cleanup": [
+    "verification/92d45ef2-42de-4141-8f2a-1bf72ed3aecb/current.json",
+    "verification/92d45ef2-42de-4141-8f2a-1bf72ed3aecb/users.json"
+  ],
+  "repository": "mikeertl/early-birds-test",
+  "startedAt": "2026-10-15T08:47:46.008Z",
+  "folder": "verification/92d45ef2-42de-4141-8f2a-1bf72ed3aecb",
+  "finishedAt": "2026-10-15T08:48:12.193Z",
+  "failureTest": "One rejected write was injected locally; its retry and all persistence/conflict checks used the real GitHub test repository."
+}

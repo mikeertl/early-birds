@@ -182,8 +182,8 @@ node --test tests/store.test.cjs
 They simulate two independent clients sharing a GitHub Contents store, including
 last-place joins, concurrent edits/bagels/cleanup, lost acknowledgements, Unicode,
 directory changes, sign-out during a save, malformed data, failed/uncertain outcomes
-and retry input preservation. No live GitHub
-writes or test-repository verification have been performed; that is task 2.6.
+and retry input preservation. Live test-repository verification also passed on
+2026-10-15; see [the recorded evidence](docs/foundation-verification.json).
 
 Run the browser regression checks with a local preview running, using Node.js
 22+ and Chrome (Node 20 can use `--experimental-websocket`):
@@ -199,6 +199,47 @@ They cover failed sign-in, profile updates, restore, cancellation, storage failu
 cross-tab sign-out, retained-token reuse/forgetting, signed-out reload, code masking, local/GitHub refresh, refresh failure/recovery
 and phone/desktop layouts. They also simulate denied saves and verify that the
 retry button retains original values and only shows saved after confirmation.
+
+## Live foundation verification (task 2.6)
+
+Use a dedicated repository such as `mikeertl/early-birds-test` and a token granting
+it Contents read/write access. The runner refuses repository names that do not
+end in `-test`; it does not change the app's production configuration. It creates
+two JSON files in a unique `verification/<run-id>/` folder, then removes those
+files after the run. Existing repository files are left alone; test commits remain.
+
+Start the setup page with Node.js 22+ and Chrome installed:
+
+```sh
+node tests/live.browser.cjs
+```
+
+On Node.js 20, use `node --experimental-websocket tests/live.browser.cjs`.
+Open the printed local URL (normally `http://127.0.0.1:8787`), enter the repository
+and its token, then click **Run live checks**. Use `CHROME_BIN` for a different
+Chrome location or `LIVE_TEST_PORT` for another setup-page port. Enter credentials
+only in that local page, never in chat, command arguments or project files.
+
+Two separate Chrome contexts sign in as Mike Ertl and Akiko and exercise real
+GitHub reads/writes. A barrier holds their first concurrent writes until both
+have read the same SHA, producing a real conflict for the store to reconcile.
+One rejected write is injected locally to verify failure recovery, followed by a
+real retry and a read from the other session. Longbourn storage sentinels and
+independent session identities are checked without opening the real Longbourn app.
+
+The token is held in memory and in temporary test-browser profiles, which are
+removed after testing. No credential is included in logs or results. The local
+page displays progress and cleanup; an ignored `tests/live-last-result.json`
+records sanitised results. Wait for cleanup before stopping the runner with
+Ctrl+C. If cleanup fails, the report identifies only the unique test folder that
+needs removal.
+
+Task 2.6 passed on 2026-10-15: all 14 live checks succeeded against
+`mikeertl/early-birds-test`, including real SHA-conflict reconciliation and
+cross-session persistence. Both temporary JSON files were removed. The rejected
+write was injected locally; the subsequent retry used real GitHub persistence.
+See [the sanitised result](docs/foundation-verification.json). Production data
+and Longbourn were unchanged.
 
 The staged plan and version 1 data contract are maintained in
 `../@project/01-init.md` in the surrounding workspace.
