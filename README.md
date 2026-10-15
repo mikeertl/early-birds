@@ -28,7 +28,7 @@ There is no dependency installation or build step.
 - `app.js`: application bootstrap;
 - `auth.js`: sign-in, browser sessions, profile and access helpers;
 - `booking.js`: Add Court form, quick dates, draft validation and save/retry integration;
-- `bagels.js`: singles/doubles reporting, Admin historical entry, recorded-set review and save/retry drafts;
+- `bagels.js`: singles/doubles reporting, Admin historical entry, recorded-set review, save/retry drafts and the public result list;
 - `games.js`: ordered game cards, booking details and labelled player lists;
 - `model.js`: version 1 validation and replayable data actions;
 - `store.js`: shared reads, queued saves and conflict reconciliation;
@@ -61,11 +61,11 @@ out and remove the token. A signed-out reload keeps the token without restoring
 a player session; it is checked with GitHub again when you next sign in.
 
 Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
-Games shows booking cards or an empty state; the other tabs show loaded counts.
+Games shows booking cards, Bagels shows saved result cards, and Admin provides court management.
 Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
 cards. Tasks 3.3–3.4 add participation controls and action refresh; 3.5 adds court
-editing and deletion. Tasks 4.1–4.2 add Bagel eligibility and reporting; the full
-Bagels list is 4.3 and Admin player management is 4.5. Branding artwork and
+editing and deletion. Tasks 4.1–4.3 add Bagel eligibility, reporting and the result
+list. Admin player management is 4.5. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -145,8 +145,19 @@ until **Retry save** or the global retry confirms the original set. **Refresh
 game** reviews current eligibility without dropping typed selections. Drafts are
 kept separately by player, Admin mode and source; session changes close the form.
 
-Saved sets are visible in the reporting dialog and reflected in the Bagels count.
-The full styled Bagels list remains task 4.3.
+Saved sets appear in the reporting dialog and the public **Bagels** tab. Results
+sort by game date newest first, then creation time newest first, then stable ID
+for deterministic ties. Each card shows a bagel icon, calendar date, 6–0 score,
+Singles/Doubles, green winners with smiles and red losers with sad faces. Text
+labels identify both teams independently of colour; decorative icons are hidden
+from screen readers. Teams sit side by side on wider screens and stack on phones.
+
+The list uses recorded name snapshots, so inactive/renamed players and deleted
+source courts do not change history. Names render as literal text, and dates stay
+on the recorded calendar day regardless of the device timezone. Visitors can view
+the list; a failed refresh keeps the last good results with the shared stale-data
+notice. An empty result list shows the labelled empty state. Admin deletion remains
+task 4.6.
 
 The branding bird was confirmed as a **mistle thrush**; artwork remains task 5.1.
 

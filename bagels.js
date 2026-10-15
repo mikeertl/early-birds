@@ -161,7 +161,47 @@
       });
       render();
     });
-    return Object.freeze({ update: function (data) { latest = data; render(); } });
+    function node(tag, className, text) {
+      var value = document.createElement(tag);
+      if (className) value.className = className;
+      if (text !== undefined) value.textContent = text;
+      return value;
+    }
+    function icon(text, className) {
+      var value = node("span", className, text); value.setAttribute("aria-hidden", "true"); return value;
+    }
+    function renderList(data) {
+      var list = document.getElementById("bagelsList");
+      var entries = data.state.bagels.slice().sort(function (a, b) {
+        return b.date.localeCompare(a.date) || Date.parse(b.createdAt) - Date.parse(a.createdAt) || a.id.localeCompare(b.id);
+      });
+      list.replaceChildren();
+      entries.forEach(function (bagel, index) {
+        var card = node("li", "bagel-card"); card.dataset.bagelId = bagel.id;
+        var header = node("div", "bagel-card-heading");
+        var heading = node("h3", "bagel-date"); heading.id = "bagel-result-" + index;
+        card.setAttribute("aria-labelledby", heading.id);
+        var parts = {};
+        new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" })
+          .formatToParts(new Date(bagel.date + "T12:00:00Z")).forEach(function (part) { parts[part.type] = part.value; });
+        var date = node("time", "", parts.weekday + " " + parts.day + " " + parts.month + " " + parts.year); date.dateTime = bagel.date;
+        heading.appendChild(date);
+        var details = node("div", "bagel-result-details");
+        details.append(heading, node("p", "bagel-score", "6–0 · " + (bagel.winners.length === 1 ? "Singles" : "Doubles")));
+        header.append(icon("🥯", "bagel-icon"), details);
+        var teams = node("div", "bagel-teams");
+        [["Winners", "🙂", bagel.winners, "bagel-winners"], ["Losers", "🙁", bagel.losers, "bagel-losers"]].forEach(function (team) {
+          var group = node("section", "bagel-team-result " + team[3]); group.setAttribute("aria-label", team[0]);
+          var label = node("h4", "bagel-team-label"); label.append(icon(team[1], "bagel-face"), document.createTextNode(" " + team[0]));
+          var players = node("ul", "player-list");
+          team[2].forEach(function (player) { players.appendChild(node("li", "player-chip", player.name)); });
+          group.append(label, players); teams.appendChild(group);
+        });
+        card.append(header, teams); list.appendChild(card);
+      });
+      options.ui.setPanelState("bagels", entries.length ? "ready" : "empty");
+    }
+    return Object.freeze({ update: function (data) { latest = data; render(); }, renderList: renderList });
   }
   window.EarlyBirdsBagels = Object.freeze({ init: init });
 })();

@@ -166,6 +166,36 @@ h2 {
   gap: 16px;
 }
 
+.bagels-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.bagel-card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8faf9;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bagel-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bagel-icon { font-size: 36px; line-height: 1; }
+.bagel-date { margin: 0; font-size: 20px; }
+.bagel-score { margin: 4px 0 0; color: var(--muted); }
+.bagel-result-details { min-width: 0; }
+.bagel-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+.bagel-team-label { margin: 0 0 8px; font-size: 14px; }
+.bagel-winners .player-chip { color: #185334; background: var(--green-soft); }
+.bagel-losers .player-chip { color: #852b2b; background: #fbe4e4; }
+
 .game-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -280,6 +310,8 @@ h2 {
 }
 
 @media (max-width: 620px) {
+  .bagel-teams { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .bagel-card { padding: 16px; }
   .game-card {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;

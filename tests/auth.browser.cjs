@@ -89,7 +89,7 @@ async function main() {
               return new Response('{}', {status:409});
             }
             await new Promise(resolve => setTimeout(resolve, 50));
-            window.mockFiles[file] = atob(JSON.parse(options.body).content);
+            window.mockFiles[file] = new TextDecoder().decode(Uint8Array.from(atob(JSON.parse(options.body).content), c=>c.charCodeAt(0)));
             if (window.loseAckOnce) {window.loseAckOnce=false;window.failShared=true;throw new TypeError('Simulated lost response');}
             return new Response(JSON.stringify({content:{sha:'test-sha'}}));
           }
@@ -98,7 +98,7 @@ async function main() {
             const initial=await(await realFetch(file)).json();
             data=JSON.stringify(file==='data/current.json'?(window.fixtureState||{...initial,courts:[],bagels:[]}):(window.fixtureUsers||initial));
           }
-          return new Response(JSON.stringify({ type:'file', encoding:'base64', content:btoa(data), sha:'test-sha' }));
+          return new Response(JSON.stringify({ type:'file', encoding:'base64', content:btoa(String.fromCharCode(...new TextEncoder().encode(data))), sha:'test-sha' }));
         }
         if (options.method && options.method !== 'GET') throw new Error('Unexpected write');
         window.tokenChecks++;
@@ -719,6 +719,57 @@ async function main() {
     await evaluate(`(async()=>{document.getElementById('refreshBagelButton').click();await new Promise(r=>setTimeout(r,100));})()`);
     assert(await evaluate(`document.getElementById('bagelFields').disabled && document.getElementById('bagelWinner1').value==='akiko' && document.getElementById('bagelEligibility').textContent.includes('no longer eligible')`));
     console.log('Bagel save rejects newly changed membership without writing or losing selections');
+    const listWrites=await evaluate('window.mockWriteAttempts');
+    await evaluate(`(async()=>{
+      document.getElementById('closeBagelButton').click();
+      const snapshot=window.EarlyBirdsStore.getSnapshot();
+      const make=(id,date,createdAt,winners,losers)=>({id,date,createdAt,createdBy:'mike-ertl',sourceCourtId:'deleted-source',winners,losers});
+      const mike={userId:'mike-ertl',name:'Mike historical'},akiko={userId:'akiko',name:'Akiko 鳥'},arda={userId:'arda',name:'Arda historical'},ellen={userId:'ellen',name:'Ellen before rename'};
+      window.fixtureState={...snapshot.state,courts:[],bagels:[
+        make('old-date','2026-10-13','2026-10-16T11:00:00Z',[mike],[akiko]),
+        make('new-b','2026-10-16','2026-10-16T10:00:00.500Z',[mike,akiko],[arda,ellen]),
+        make('new-zero','2026-10-16','2026-10-16T10:00:00Z',[akiko],[mike]),
+        make('new-a','2026-10-16','2026-10-16T10:00:00.500Z',[{...mike,name:'Mike <img src=x onerror=alert(1)>'}],[akiko])
+      ]};
+      window.mockFiles['data/current.json']=JSON.stringify(window.fixtureState);
+      const users={...snapshot.users,users:snapshot.users.users.map(u=>u.id==='ellen'?{...u,name:'Ellen current name',active:false}:u)};
+      window.mockFiles['data/users.json']=JSON.stringify(users);
+      await window.EarlyBirdsStore.refresh();document.getElementById('bagelsTabButton').click();
+    })()`);
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('#bagelsList > .bagel-card')].map(c=>c.dataset.bagelId)`),['new-a','new-b','new-zero','old-date']);
+    assert.deepEqual(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.map(b=>b.id)`),['old-date','new-b','new-zero','new-a']);
+    console.log('Bagels sort newest game date first, then precise creation time and stable ID, without mutating shared order');
+    assert(await evaluate(`document.querySelector('#bagelsList').textContent.includes('Mike <img src=x onerror=alert(1)>') && !document.querySelector('#bagelsList img') && document.querySelector('#bagelsList').textContent.includes('Ellen before rename') && !document.querySelector('#bagelsList').textContent.includes('Ellen current name')`));
+    console.log('Bagels display literal saved names, including inactive/renamed players, without requiring the deleted court');
+    assert(await evaluate(`document.querySelector('[data-bagel-id="new-b"] .bagel-score').textContent==='6–0 · Doubles' && document.querySelector('[data-bagel-id="new-a"] .bagel-score').textContent==='6–0 · Singles' && document.querySelector('[data-bagel-id="new-b"] .bagel-winners').getAttribute('aria-label')==='Winners' && document.querySelector('[data-bagel-id="new-b"] .bagel-losers').getAttribute('aria-label')==='Losers' && document.querySelector('#bagelsList .bagel-icon').getAttribute('aria-hidden')==='true' && document.querySelector('#bagelsList .bagel-winners .bagel-face').textContent==='🙂' && document.querySelector('#bagelsList .bagel-losers .bagel-face').textContent==='🙁'`));
+    assert(await evaluate(`getComputedStyle(document.querySelector('#bagelsList .bagel-winners .player-chip')).color!==getComputedStyle(document.querySelector('#bagelsList .bagel-losers .player-chip')).color`));
+    console.log('Singles/doubles cards show bagel/date/score and labelled green winners with smiles and red losers with sad faces');
+    await cdp('Emulation.setTimezoneOverride',{timezoneId:'Pacific/Kiritimati'});
+    await evaluate('window.EarlyBirdsStore.refresh().then(()=>true)');
+    assert(await evaluate(`document.querySelector('#bagelsList time').dateTime==='2026-10-16' && document.querySelector('#bagelsList time').textContent==='Fri 16 Oct 2026'`));
+    console.log('Bagel calendar dates stay correct in a device timezone far from London');
+    await evaluate(`(async()=>{window.failShared=true;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`document.querySelectorAll('#bagelsList > .bagel-card').length===4 && !document.getElementById('staleNotice').hidden && document.getElementById('dataError').textContent!==''`));
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,100));document.getElementById('signOutButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`!window.EarlyBirdsAuth.getSession() && !document.getElementById('bagelsPanel').hidden && document.querySelectorAll('#bagelsList > .bagel-card').length===4`));
+    console.log('Failed refresh retains last good Bagels list; visitors can view all retained results after sign-out');
+    await evaluate(`(async()=>{
+      window.fixtureState.bagels.find(b=>b.id==='new-a').winners[0].name='Mike historical';await window.EarlyBirdsStore.refresh();
+    })()`);
+    for(const width of [320,390,768,1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<540});
+      assert(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'));
+      assert(await evaluate(`(()=>{const card=document.querySelector('[data-bagel-id="new-b"]');const winners=card.querySelector('.bagel-winners').getBoundingClientRect();const losers=card.querySelector('.bagel-losers').getBoundingClientRect();return ${width}<=620?losers.top>=winners.bottom:losers.left>=winners.right;})()`));
+      if(width===390 && process.env.TEST_BAGELS_SCREENSHOT_PATH) {
+        const shot=await cdp('Page.captureScreenshot',{format:'png'});
+        await fs.writeFile(process.env.TEST_BAGELS_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+      }
+    }
+    assert.equal(await evaluate('window.mockWriteAttempts'),listWrites);
+    console.log('Bagels list fits phone and desktop widths; rendering, refreshing and visiting do not write');
+    await evaluate(`(async()=>{window.fixtureState.bagels=[];await window.EarlyBirdsStore.refresh();})()`);
+    assert(await evaluate(`document.getElementById('bagelsPanel').dataset.state==='empty' && document.getElementById('bagelsList').hidden && document.getElementById('bagelsList').children.length===0 && document.querySelector('#bagelsPanel [data-state-title]').textContent==='No bagels to show yet'`));
+    console.log('Empty Bagels refresh removes old cards and shows the labelled empty state');
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');
   } finally {
