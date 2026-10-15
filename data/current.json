@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T20:22:32.882Z",
-  "updatedBy": "akiko",
+  "updatedAt": "2026-10-15T20:27:36.446Z",
+  "updatedBy": "mike-ertl",
   "courts": [
     {
       "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
@@ -82,7 +82,8 @@
       "bookedBy": "akiko",
       "durationMinutes": 60,
       "green": [
-        "akiko"
+        "akiko",
+        "mike-ertl"
       ],
       "reserved": [],
       "createdAt": "2026-10-15T20:22:32.882Z",
