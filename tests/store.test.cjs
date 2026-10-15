@@ -337,3 +337,83 @@ test('confirmed deletion rejects changed details, preserves bagels and reconcile
   await owner.mutate({type:'court.remove',courtId:'a',expected});
   await assert.rejects(owner.mutate({type:'court.patch',courtId:'a',changes:{code:'111111'},expected:{code:'012345'}}),/no longer exists/);
 });
+function expiryFixture() {
+  return {...clone(seedState),courts:[court('old',{date:'2026-10-13'}),court('today'),court('future',{date:'2026-10-15'})],
+    bagels:[{id:'kept',sourceCourtId:'old',date:'2026-10-13',winners:[{userId:'mike-ertl',name:'Original Mike'}],losers:[{userId:'akiko',name:'Original Akiko'}],createdAt:now,createdBy:'mike-ertl'}]};
+}
+test('authenticated refresh automatically cleans old courts; visitor reads never write', async () => {
+  const remote=server({'data/current.json':expiryFixture()});
+  const visitor=client(remote,null,false,{isLocal:true}).store;
+  await visitor.refresh();assert.equal(remote.puts,0);assert.equal(visitor.getSnapshot().state.courts.length,3);
+  const owner=client(remote).store;const events=[];owner.subscribe(event=>events.push(event.status));
+  await owner.refresh();
+  assert.deepEqual(owner.getSnapshot().state.courts.map(c=>c.id),['today','future']);
+  assert.deepEqual(remote.documents['data/current.json'].bagels,expiryFixture().bagels);
+  assert.equal(remote.puts,1);assert.equal(events.at(-1).cleanup.outcome,'saved');assert.equal(events.at(-1).save.outcome,'none');
+  await owner.refresh();assert.equal(remote.puts,1);
+});
+test('automatic cleanup replays conflicts and preserves rescheduled courts, new games and bagels', async () => {
+  const remote=server({'data/current.json':expiryFixture()});
+  remote.beforePut=(docs,revisions,file)=>{
+    docs[file].courts[0].date='2026-10-16';
+    docs[file].courts.push(court('new',{date:'2026-10-17',courtNumber:3}));
+    docs[file].bagels.push({...clone(docs[file].bagels[0]),id:'another'});revisions[file]++;
+  };
+  const {store}=client(remote);await store.refresh();
+  assert.equal(remote.conflicts,1);assert.equal(remote.puts,1);
+  assert.equal(store.getSnapshot().state.courts.length,4);assert.equal(store.getSnapshot().state.bagels.length,2);
+  assert.equal(store.getSnapshot().state.courts[0].date,'2026-10-16');
+});
+test('ordinary state write includes cleanup in its same commit and retains today and history', async () => {
+  const remote=server({'data/current.json':expiryFixture()});const {store}=client(remote);
+  await store.mutate({type:'participation.set',courtId:'today',status:'reserved'});
+  assert.equal(remote.puts,1);assert.deepEqual(remote.documents['data/current.json'].courts.map(c=>c.id),['today','future']);
+  assert.deepEqual(remote.documents['data/current.json'].courts[0].reserved,['mike-ertl']);
+  assert.deepEqual(remote.documents['data/current.json'].bagels,expiryFixture().bagels);
+});
+test('cleanup failures keep readable data and separate status, then refresh confirms lost acknowledgement', async () => {
+  const remote=server({'data/current.json':expiryFixture()});let denied=true;const events=[];
+  const {store}=client(remote,'mike-ertl',false,{fetch:(url,options={})=>denied && options.method==='PUT'?Promise.resolve(new Response('{}',{status:403})):remote.fetch(url,options)});
+  store.subscribe(event=>events.push(event.status));await store.refresh();
+  assert.equal(events.at(-1).phase,'ready');assert.equal(events.at(-1).cleanup.outcome,'failed');
+  assert.equal(events.at(-1).save.outcome,'none');assert.equal(store.getRecovery(),null);assert.equal(store.getSnapshot().state.courts.length,3);
+  denied=false;remote.loseAck=true;await store.refresh();
+  assert.equal(remote.puts,1);assert.equal(events.at(-1).cleanup.outcome,'saved');assert.equal(store.getSnapshot().state.courts.length,2);
+});
+test('automatic cleanup defers to retained failed or uncertain player intent', async () => {
+  for(const unknown of [false,true]) {
+    const remote=server({'data/current.json':expiryFixture()});let rejectWrite=true;
+    const {store}=client(remote,'mike-ertl',false,{fetch:(url,options={})=>{
+      if(rejectWrite && options.method==='PUT') return unknown?Promise.reject(new TypeError('unknown write')):Promise.resolve(new Response('{}',{status:403}));
+      return remote.fetch(url,options);
+    }});
+    const action={type:'participation.set',courtId:'today',status:'reserved'};
+    await assert.rejects(store.mutate(action));const recovery=store.getRecovery();
+    await store.refresh();assert.deepEqual(store.getRecovery(),recovery);assert.equal(remote.puts,0);
+    rejectWrite=false;await store.retry();assert.equal(remote.puts,1);assert.equal(store.getSnapshot().state.courts.length,2);
+    assert.deepEqual(store.getSnapshot().state.courts[0].reserved,['mike-ertl']);
+  }
+});
+test('user directory save also cleans expired state without changing its successful save outcome', async () => {
+  const remote=server({'data/current.json':expiryFixture()});const {store}=client(remote,'mike-ertl',true);
+  await store.mutate({type:'user.patch',userId:'akiko',expected:{name:'Akiko'},changes:{name:'Akiko renamed'}});
+  assert.equal(remote.puts,2);assert.equal(store.getSnapshot().state.courts.length,2);
+  assert.equal(store.getSnapshot().users.users.find(u=>u.id==='akiko').name,'Akiko renamed');
+  assert.equal(store.getSnapshot().state.bagels[0].losers[0].name,'Original Akiko');
+});
+test('London midnight cleanup honours summer/winter dates and both daylight-saving transitions', () => {
+  for(const [before,after,date] of [
+    ['2026-07-10T22:59:59Z','2026-07-10T23:00:00Z','2026-07-10'],
+    ['2026-12-10T23:59:59Z','2026-12-11T00:00:00Z','2026-12-10'],
+    ['2026-03-29T22:59:59Z','2026-03-29T23:00:00Z','2026-03-29'],
+    ['2026-10-25T23:59:59Z','2026-10-26T00:00:00Z','2026-10-25'],
+  ]) {
+    const state={...clone(seedState),courts:[court('ends-today',{date})]};
+    const actor={userId:'mike-ertl',isAdmin:false};
+    assert.equal(model.applyState(state,seedUsers,{type:'courts.cleanup'},actor,before).courts.length,1);
+    assert.equal(model.applyState(state,seedUsers,{type:'courts.cleanup'},actor,after).courts.length,0);
+    assert.throws(()=>model.applyState(state,seedUsers,{type:'participation.set',courtId:'ends-today',status:'reserved'},actor,after),/expired/);
+  }
+  assert.equal(model.londonClock('2026-03-29T01:00:00Z').date,'2026-03-29');
+  assert.equal(model.londonClock('2026-10-25T01:00:00Z').date,'2026-10-25');
+});

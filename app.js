@@ -40,7 +40,7 @@
       isLocal: ["localhost", "127.0.0.1", "[::1]"].indexOf(window.location.hostname) >= 0,
     });
     window.EarlyBirdsStore = store;
-    var games = window.EarlyBirdsGames.init({ auth: auth, store: store, config: config, ui: window.EarlyBirdsUI });
+    var games = window.EarlyBirdsGames.init({ auth: auth, store: store, model: model, config: config, ui: window.EarlyBirdsUI });
     store.subscribe(function (event) {
       var phase = event.status.phase;
       var pending = phase === "loading" || phase === "saving";
@@ -52,6 +52,7 @@
       var saveFailed = save.outcome === "failed" || save.outcome === "uncertain";
       document.getElementById("saveStatus").textContent = saveFailed ? "" : save.message;
       document.getElementById("saveError").textContent = saveFailed ? save.message : "";
+      document.getElementById("cleanupNotice").textContent = event.status.cleanup.message;
       document.getElementById("staleNotice").hidden = !event.status.stale;
       document.getElementById("retrySaveButton").hidden = !save.canRetry;
       document.getElementById("retrySaveButton").disabled = pending;
@@ -63,18 +64,40 @@
         Object.keys(emptyMessages).forEach(function (name) { setPanelState(name, phase === "error" ? "error" : "loading", event.status.message); });
       }
     });
-    function refresh() { return store.refresh().catch(function () { /* The store publishes a safe error message. */ }); }
+    function refresh() { cleanupDue = false; return store.refresh().catch(function () { /* The store publishes a safe error message. */ }); }
     document.getElementById("refreshButton").addEventListener("click", refresh);
     document.getElementById("retrySaveButton").addEventListener("click", function () {
       store.retry().catch(function () { /* The store keeps the change and publishes its outcome. */ });
     });
     window.EarlyBirdsBooking.init({ store: store, auth: auth, model: model, config: config });
+    var displayedDay = model.londonClock(new Date().toISOString()).date;
+    var cleanupDue = false;
+    function checkExpiry() {
+      var day = model.londonClock(new Date().toISOString()).date;
+      if (day !== displayedDay) {
+        displayedDay = day; cleanupDue = true;
+        var data = store.getSnapshot();
+        if (data) games.render(data);
+      }
+    }
+    function expiryTick() {
+      checkExpiry();
+      if (cleanupDue && auth.getSession() && !store.getRecovery() && !document.querySelector("dialog[open]") && !document.getElementById("refreshButton").disabled) {
+        cleanupDue = false;
+        refresh();
+      }
+      // Check on minute boundaries: London midnight is also a UTC minute
+      // boundary on both sides of a daylight-saving change. No network polling.
+      window.setTimeout(expiryTick, 60000 - Date.now() % 60000);
+    }
+    window.setTimeout(expiryTick, 60000 - Date.now() % 60000);
     auth.init().then(function () {
       window.addEventListener("early-birds-session-change", refresh);
       // A returning player should see departures and newly filled places.
       // Coalesce focus/visibility events, and leave active forms and saves alone.
       var returnRefresh;
       function refreshOnReturn() {
+        checkExpiry();
         window.clearTimeout(returnRefresh);
         returnRefresh = window.setTimeout(function () {
           var recovery = store.getRecovery();

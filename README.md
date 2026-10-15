@@ -96,7 +96,29 @@ Playing names appear in green and reserves in yellow, with text labels and count
 for both groups. Current names, including inactive players in existing bookings,
 are resolved from stable user IDs. Names are inserted as text, never HTML. Player
 lists sit to the right on wider screens and beneath booking details on phones.
-Expiry/cleanup is task 3.6.
+Previous London dates are hidden in Games and Admin; today's finished games stay
+visible until midnight.
+
+## Court expiry and cleanup
+
+The browser checks the London date on minute boundaries and when returning to
+the window/tab, so an open page hides old courts at midnight even without a new
+read. Dates use Europe/London, including daylight-saving changes. The device's
+timezone does not determine expiry. Visitors hide expired courts without writing.
+
+A signed-in refresh removes expired courts from shared data using fresh SHAs
+and conflict reconciliation. Ordinary game/bagel writes include cleanup in the
+same commit; user-directory saves also attempt state cleanup. Today and future
+bookings survive, and bagels retain their source IDs and recorded player names.
+There is no server job or periodic network polling.
+
+At midnight, a signed-in open page attempts a refresh/cleanup when no dialog,
+pending request or retained failed/uncertain action is present. If busy, it keeps
+checking locally on minute boundaries; normal refreshes/writes also clean up.
+Cleanup waits for retained player intent to be resolved rather than replacing
+that intent. A denied or unconfirmed cleanup shows a separate message and can be
+retried with Refresh. Old courts remain hidden, and readable data and player-save
+outcomes are preserved. An open form keeps its input; saves revalidate the date.
 
 ## Editing and deleting courts
 
@@ -191,7 +213,8 @@ replacement API is exposed. Existing bagels retain their player-name snapshots.
 `EarlyBirdsStore.getRecovery()` returns a copy of the last failed action and its
 `failed`/`uncertain` outcome, without credentials. `retry()` reuses that action.
 Store subscriptions include `status.save` (`outcome`, `message`, `canRetry`) and
-`status.stale`. Refresh success does not itself imply that a failed action saved.
+`status.stale`, plus separate maintenance `status.cleanup` (`outcome`, `message`).
+Refresh success does not itself imply that a failed action saved.
 Rejected save promises carry an `outcome`; if GitHub acknowledged a PUT just
 before sign-out, that outcome is `saved` with guidance to refresh, and the action
 is not offered for replay.
@@ -204,7 +227,7 @@ Supported actions for subsequent forms are:
 - `participation.set` with `courtId`, optional `userId`, and `status: "green" | "reserved" | "none"`;
 - `bagel.add` with `bagel: { id, sourceCourtId, date, winnerIds, loserIds }`;
 - `bagel.remove` with `bagelId`;
-- `courts.cleanup` (removes prior London dates; scheduling is task 3.6);
+- `courts.cleanup` (removes prior London dates; automatic refresh/write cleanup and local midnight checks are enabled);
 - `user.add` with `user: { id, name, active }`;
 - `user.patch` with `userId`, `changes` and matching `expected` values.
 

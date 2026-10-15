@@ -489,6 +489,60 @@ async function main() {
       }
       await evaluate('document.getElementById("closeCourtButton").click()');
     }
+    const expiryState=await evaluate(`(()=>{
+      const base={durationMinutes:60,time:'08:00',courtNumber:1,code:'012345',bookedBy:'mike-ertl',green:['mike-ertl'],reserved:[],createdAt:'2026-10-14T08:00:00Z',createdBy:'mike-ertl'};
+      return {...window.EarlyBirdsStore.getSnapshot().state,courts:[
+        {...base,id:'expiry-old',date:'2026-10-14'}, {...base,id:'expiry-today',date:'2026-10-15'}, {...base,id:'expiry-future',date:'2026-10-16'}
+      ],bagels:[{id:'expiry-history',sourceCourtId:'expiry-old',date:'2026-10-14',winners:[{userId:'mike-ertl',name:'Mike before rename'}],losers:[{userId:'akiko',name:'Akiko before rename'}],createdAt:'2026-10-14T10:00:00Z',createdBy:'mike-ertl'}]};
+    })()`);
+    await cdp('Page.addScriptToEvaluateOnNewDocument',{source:`
+      if(!sessionStorage.getItem('expiry-tests-started')) {
+        localStorage.removeItem('early-birds-user-id');localStorage.removeItem('early-birds-admin-mode');
+        sessionStorage.setItem('expiry-tests-started','yes');
+      }
+      const ClockDate=window.Date;
+      window.expiryNow='2026-10-15T22:59:59.900Z';
+      window.Date=class extends ClockDate {
+        constructor(...args){super(...(args.length?args:[window.expiryNow]));}
+        static now(){return new ClockDate(window.expiryNow).getTime();}
+      };
+      window.fixtureState=${JSON.stringify(expiryState)};
+      window.allowWrites=Boolean(localStorage.getItem('early-birds-user-id'));
+    `});
+    async function reloadExpiry() {
+      await cdp('Page.reload');await new Promise(r=>setTimeout(r,200));
+      for(let n=0;n<60;n++) {
+        if(await evaluate('Boolean(window.EarlyBirdsStore && window.EarlyBirdsStore.getSnapshot() && !document.getElementById("refreshButton").disabled)')) return;
+        await new Promise(r=>setTimeout(r,50));
+      }
+      throw new Error('Expiry fixture did not finish loading');
+    }
+    await reloadExpiry();
+    assert(await evaluate(`!document.querySelector('[data-court-id="expiry-old"]') && Boolean(document.querySelector('[data-court-id="expiry-today"]')) && window.mockWriteAttempts===0 && window.EarlyBirdsStore.getSnapshot().state.courts.length===3`));
+    console.log('Visitor hides yesterday and keeps today completed, without writing');
+    await evaluate(`window.expiryNow='2026-10-15T23:00:00.000Z'`);
+    await new Promise(r=>setTimeout(r,250));
+    assert(await evaluate(`!document.querySelector('[data-court-id="expiry-today"]') && Boolean(document.querySelector('[data-court-id="expiry-future"]')) && window.mockWriteAttempts===0 && window.EarlyBirdsStore.getSnapshot().state.bagels.length===1`));
+    console.log('Open visitor page hides expired court at London midnight via timer, retaining bagels');
+    await evaluate(`(async()=>{
+      window.allowWrites=true;window.denySave=true;
+      document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';document.getElementById('profileAdmin').checked=true;
+      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,200));
+    })()`);
+    assert(await evaluate(`document.getElementById('cleanupNotice').textContent.includes('could not be saved') && document.getElementById('saveError').textContent==='' && !window.EarlyBirdsStore.getRecovery() && document.getElementById('adminCourtsList').children.length===1 && document.getElementById('gamesList').children.length===1`));
+    console.log('Denied cleanup keeps expired courts hidden in Games/Admin and shows separate maintenance error');
+    await evaluate(`(async()=>{window.denySave=false;window.loseAckOnce=true;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,200));})()`);
+    assert(await evaluate(`document.getElementById('cleanupNotice').textContent.includes('not confirmed') && !window.EarlyBirdsStore.getRecovery()`));
+    const cleanupWrites=await evaluate('window.mockWriteAttempts');
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert.equal(await evaluate('window.mockWriteAttempts'),cleanupWrites);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.length===1 && window.EarlyBirdsStore.getSnapshot().state.bagels[0].winners[0].name==='Mike before rename' && document.getElementById('cleanupNotice').textContent===''`));
+    console.log('Refresh reconciles unknown cleanup acknowledgement without another write or lost history');
+    await reloadExpiry();
+    assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().state.courts.length'),2);
+    await evaluate(`window.expiryNow='2026-10-15T23:00:00.000Z'`);await new Promise(r=>setTimeout(r,350));
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.length===1 && window.EarlyBirdsStore.getSnapshot().state.bagels.length===1 && document.getElementById('adminCourtsList').children.length===1`));
+    console.log('Open signed-in page persists London midnight cleanup and preserves future court/history');
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');
   } finally {

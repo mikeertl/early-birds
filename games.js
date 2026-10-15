@@ -126,7 +126,8 @@
       var focusTarget = previousFocus ? { courtId: previousFocus.dataset.courtId, status: focused.dataset.participation } : null;
       var names = new Map(data.users.users.map(function (user) { return [user.id, user.name]; }));
       function name(id) { return names.get(id) || "Unknown player"; }
-      var courts = data.state.courts.slice().sort(function (a, b) {
+      var today = options.model.londonClock(new Date().toISOString()).date;
+      var courts = data.state.courts.filter(function (court) { return court.date >= today; }).sort(function (a, b) {
         return a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.courtNumber - b.courtNumber || a.id.localeCompare(b.id);
       });
       list.replaceChildren();

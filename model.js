@@ -125,6 +125,7 @@
           break;
         case "participation.set": {
           check(court, "This court no longer exists.");
+          check(court.date >= clock.date, "This game has expired. Refresh to see the latest games.");
           var playerId = action.userId || actor.userId;
           if (playerId !== actor.userId) admin();
           check(["green", "reserved", "none"].indexOf(action.status) >= 0, "Invalid participation status.");

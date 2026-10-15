@@ -10,6 +10,7 @@
     var recovery = null;
     var save = { outcome: "none", message: "" };
     var stale = false;
+    var cleanup = { outcome: "none", message: "" };
     var status = { phase: "idle", message: "", source: "" };
     function copy(value) { return JSON.parse(JSON.stringify(value)); }
     function current() { return options.getSession(); }
@@ -21,6 +22,7 @@
     function notify() {
       var view = copy(status);
       view.stale = stale;
+      view.cleanup = copy(cleanup);
       view.save = Object.assign({}, save, { canRetry: Boolean(recovery && current() && current().userId === recovery.userId &&
         current().isAdmin === recovery.isAdmin && save.outcome !== "pending") });
       listeners.forEach(function (listener) { listener({ status: copy(view), data: copy(snapshot) }); });
@@ -90,12 +92,67 @@
     async function loadDirectory() {
       return model.validateUsers((await read(github.usersPath, current(), false)).data);
     }
+    function nowIso() { return (options.now ? options.now() : new Date()).toISOString(); }
+    function hasExpired(pair, now) {
+      var today = model.londonClock(now).date;
+      return pair.state.courts.some(function (court) { return court.date < today; });
+    }
+    async function cleanupExpired(actor, pair) {
+      cleanup = { outcome: "none", message: "" };
+      if (!actor || !hasExpired(pair, nowIso())) return pair;
+      // Automatic maintenance must never replace a player's retained intent.
+      if (recovery) {
+        cleanup = { outcome: "deferred", message: "Old courts are hidden. Cleanup will wait until your retained change is resolved." };
+        return pair;
+      }
+      var uncertain = false;
+      try {
+        for (var attempt = 0; attempt < 4; attempt += 1) {
+          assertActor(actor);
+          if (attempt) pair = await readPair(actor, true);
+          assertActor(actor);
+          var now = nowIso();
+          var next = model.applyState(pair.state, pair.users, { type: "courts.cleanup" }, actor, now);
+          if (JSON.stringify(next) === JSON.stringify(pair.state)) {
+            cleanup = { outcome: "saved", message: "Expired courts removed from shared data." };
+            return pair;
+          }
+          next.updatedAt = now; next.updatedBy = actor.userId;
+          model.validateState(next, pair.users);
+          var directory = await read(github.usersPath, actor, true);
+          if (directory.sha !== pair.usersSha) continue;
+          assertActor(actor);
+          var acknowledgement;
+          try {
+            acknowledgement = await request(url(github.statePath), actor, {
+              method: "PUT", headers: Object.assign(headers(actor), { "Content-Type": "application/json" }),
+              body: JSON.stringify({ branch: github.branch, sha: pair.stateSha, content: encode(next), message: "Remove expired Early Birds courts" }),
+            });
+          } catch (error) {
+            if (error.code === 409) continue;
+            if (error.code === "network" || error.code === "response" || error.code >= 500) { uncertain = true; continue; }
+            throw error;
+          }
+          if (!acknowledgement || !acknowledgement.content || typeof acknowledgement.content.sha !== "string" || !acknowledgement.content.sha) { uncertain = true; continue; }
+          assertActor(actor);
+          pair.state = next; pair.stateSha = acknowledgement.content.sha;
+          cleanup = { outcome: "saved", message: "Expired courts removed from shared data." };
+          return pair;
+        }
+        throw fault("Shared data kept changing.", "conflict");
+      } catch (error) {
+        cleanup = { outcome: "failed", message: "Old courts are hidden, but cleanup " + (uncertain ? "is not confirmed" : "could not be saved") + ". Refresh to try again. " + error.message };
+        return pair;
+      }
+    }
     function refresh() {
       return enqueue(async function () {
         var actor = current();
         setStatus("loading", "Refreshing shared data…");
         try {
           var pair = await readPair(actor, false);
+          assertActor(actor);
+          pair = await cleanupExpired(actor, pair);
           assertActor(actor);
           snapshot = pair;
           stale = false;
@@ -125,13 +182,16 @@
             assertActor(actor);
             var pair = await readPair(actor, true);
             assertActor(actor);
-            var now = (options.now ? options.now() : new Date()).toISOString();
+            var now = nowIso();
             var original = userAction ? pair.users : pair.state;
             var next = userAction ? model.applyUsers(pair.users, intent, actor) : model.applyState(pair.state, pair.users, intent, actor, now);
+            if (!userAction) next = model.applyState(next, pair.users, { type: "courts.cleanup" }, actor, now);
             if (JSON.stringify(next) === JSON.stringify(original)) {
               snapshot = pair;
               stale = false;
               recovery = null;
+              if (userAction) { snapshot = await cleanupExpired(actor, pair); assertActor(actor); }
+              else cleanup = { outcome: "none", message: "" };
               save = { outcome: "saved", message: "Change confirmed in shared data." };
               setStatus("ready", "Change confirmed; shared data is up to date.", "github");
               return copy(snapshot);
@@ -170,6 +230,8 @@
             snapshot = pair;
             stale = false;
             recovery = null;
+            if (userAction) { snapshot = await cleanupExpired(actor, pair); assertActor(actor); }
+            else cleanup = { outcome: "none", message: "" };
             save = { outcome: "saved", message: "Change saved." };
             setStatus("ready", "Change saved.", "github");
             return copy(snapshot);
