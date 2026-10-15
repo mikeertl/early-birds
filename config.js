@@ -19,6 +19,7 @@
       pendingState: "early-birds-pending-state-v1",
       token: "early-birds-github-token",
       userId: "early-birds-user-id",
+      lastUserId: "early-birds-last-user-id",
       adminMode: "early-birds-admin-mode",
       adminPanels: "early-birds-admin-panels-v1",
     }),

@@ -44,9 +44,9 @@ async function main() {
       }
       if(Object.hasOwn(files,pathname.slice(1))) {json(files[pathname.slice(1)]);return;}
       const file=pathname==='/'?'index.html':pathname.slice(1);
-      if(!['index.html','config.js','model.js','store.js','auth.js','booking.js','bagels.js','users.js','games.js','app.js','styles.css','manifest.webmanifest','assets/early-birds.svg','assets/bagel.svg','assets/favicon.ico','assets/favicon.png','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png','assets/icon-maskable-512.png'].includes(file)) {response.writeHead(404).end();return;}
+      if(!['index.html','config.js','model.js','store.js','auth.js','booking.js','bagels.js','users.js','games.js','app.js','styles.css','manifest.webmanifest','assets/early-birds.svg','assets/bagel.svg','assets/wood-grain.svg','assets/bagel.gif','assets/bagel-still.png','assets/favicon.ico','assets/favicon.png','assets/apple-touch-icon.png','assets/icon-192.png','assets/icon-512.png','assets/icon-maskable-512.png'].includes(file)) {response.writeHead(404).end();return;}
       const content=await fs.readFile(path.join(root,file));
-      response.writeHead(200,{'Content-Type':file.endsWith('.svg')?'image/svg+xml':file.endsWith('.png')?'image/png':file.endsWith('.ico')?'image/x-icon':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.webmanifest')?'application/manifest+json':'text/html'}).end(content);
+      response.writeHead(200,{'Content-Type':file.endsWith('.gif')?'image/gif':file.endsWith('.svg')?'image/svg+xml':file.endsWith('.png')?'image/png':file.endsWith('.ico')?'image/x-icon':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.webmanifest')?'application/manifest+json':'text/html'}).end(content);
     } catch {if(!response.writableEnded) json({},500);}
   });
   try {

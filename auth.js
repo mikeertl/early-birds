@@ -12,6 +12,8 @@
   var codes = new Map();
   var lastPublishedSession;
 
+  function setStatus(message) { window.EarlyBirdsUI.setNotice("authStatus", message); }
+
   function init() {
     ["signInButton", "profileButton", "signOutButton", "authStatus", "authError",
       "profileDialog", "profileForm", "profileTitle", "profileDescription", "profileUser",
@@ -27,6 +29,7 @@
       cancelVerification();
       el.profileToken.value = "";
       setBusy(false);
+      document.getElementById("menuButton").focus({ preventScroll: true });
     });
     el.reloadUsersButton.addEventListener("click", loadUsers);
     window.addEventListener("storage", function (event) {
@@ -61,7 +64,7 @@
     users.filter(function (user) { return user.active; }).forEach(function (user) {
       el.profileUser.add(new Option(user.name, user.id));
     });
-    el.profileUser.value = activeUser(selected) ? selected : "";
+    el.profileUser.value = activeUser(selected) ? selected : rememberedUser();
     el.profileUser.disabled = !users.some(function (user) { return user.active; });
     if (session && !activeUser(session.userId)) {
       signOut();
@@ -135,7 +138,7 @@
     setBusy(false);
     el.profileTitle.textContent = session ? "My profile" : "Sign in";
     el.saveProfileButton.textContent = session ? "Save profile" : "Sign in";
-    el.profileUser.value = session ? session.userId : "";
+    el.profileUser.value = session ? session.userId : rememberedUser();
     el.profileAdmin.checked = Boolean(session && session.isAdmin);
     el.profileToken.value = "";
     var remembered = session ? session.token : savedToken();
@@ -173,9 +176,9 @@
       var saved = persistSession();
       el.profileDialog.close();
       renderSession();
-      el.authStatus.textContent = saved ? "Signed in. Profile saved in this browser." : "Signed in for this visit only.";
+      setStatus(saved ? "Signed in. Profile saved in this browser." : "Signed in for this visit only.");
       el.authError.textContent = saved ? "" : "Browser storage is unavailable. Your profile may not be restored after a refresh.";
-      el.profileButton.focus();
+      document.getElementById("menuButton").focus({ preventScroll: true });
     } catch (error) {
       if (attempt === generation) {
         el.profileStatus.textContent = "";
@@ -188,6 +191,18 @@
 
   function savedToken() {
     try { return window.localStorage.getItem(keys.token) || ""; } catch (_) { return ""; }
+  }
+
+  function rememberedUser() {
+    try {
+      var id = window.localStorage.getItem(keys.lastUserId);
+      return activeUser(id) ? id : "";
+    } catch (_) { return ""; }
+  }
+
+  function rememberUser(id) {
+    // A convenience preference, separate from the active sign-in and Admin mode.
+    try { window.localStorage.setItem(keys.lastUserId, id); } catch (_) { /* Sign-in still works without browser storage. */ }
   }
 
   function clearStoredSession(includeToken) {
@@ -205,6 +220,7 @@
       window.localStorage.setItem(keys.token, session.token);
       window.localStorage.setItem(keys.userId, session.userId);
       window.localStorage.setItem(keys.adminMode, String(session.isAdmin));
+      rememberUser(session.userId);
       return true;
     } catch (_) {
       clearStoredSession();
@@ -217,23 +233,24 @@
     var attempt = generation;
     session = null;
     renderSession();
-    el.authStatus.textContent = "";
+    setStatus("");
     el.authError.textContent = "";
     try {
       var token = window.localStorage.getItem(keys.token);
       var userId = window.localStorage.getItem(keys.userId);
       if (!token || !activeUser(userId)) { clearStoredSession(false); return; }
       var isAdmin = window.localStorage.getItem(keys.adminMode) === "true";
-      el.authStatus.textContent = "Checking saved sign-in…";
+      setStatus("Checking saved sign-in…");
       await verifyToken(token);
       if (attempt !== generation) return;
       if (!activeUser(userId)) { clearStoredSession(false); return; }
       session = { token: token, userId: userId, isAdmin: isAdmin };
+      rememberUser(userId);
       renderSession();
-      el.authStatus.textContent = "";
+      setStatus("");
     } catch (_) {
       if (attempt === generation) {
-        el.authStatus.textContent = "";
+        setStatus("");
         el.authError.textContent = "Could not restore sign-in. Sign in again to check your token and connection.";
       }
     }
@@ -241,15 +258,16 @@
 
   function signOut(forgetToken) {
     cancelVerification();
+    if (session) rememberUser(session.userId);
     session = null;
     var cleared = clearStoredSession(Boolean(forgetToken));
     el.profileToken.value = "";
     if (el.profileDialog.open) el.profileDialog.close();
     renderSession();
-    el.authStatus.textContent = forgetToken && cleared ? "Signed out. Saved token forgotten." :
-      (!forgetToken && savedToken() ? "Signed out. Your saved token is kept for next time." : "Signed out.");
+    setStatus(forgetToken && cleared ? "Signed out. Saved token forgotten." :
+      (!forgetToken && savedToken() ? "Signed out. Your saved token is kept for next time." : "Signed out."));
     el.authError.textContent = cleared ? "" : "Could not clear saved sign-in. Clear this site's browser data before leaving a shared device.";
-    el.signInButton.focus();
+    document.getElementById("menuButton").focus({ preventScroll: true });
   }
 
   function renderSession() {

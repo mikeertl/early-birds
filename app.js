@@ -13,6 +13,32 @@
   };
 
   function init() {
+    var header = initHeader();
+    var bagelMotion = window.matchMedia("(prefers-reduced-motion: reduce)"), bagelPaused = false;
+    function renderBagelAnimation() {
+      var button = document.getElementById("bagelAnimationButton");
+      var still = bagelPaused || bagelMotion.matches;
+      document.getElementById("bagelAnimation").src = still ? "assets/bagel-still.png" : "assets/bagel.gif";
+      button.setAttribute("aria-pressed", String(bagelPaused));
+      button.textContent = bagelPaused ? "Resume animation" : "Pause animation";
+      button.hidden = bagelMotion.matches;
+    }
+    document.getElementById("bagelAnimationButton").addEventListener("click", function () {
+      bagelPaused = !bagelPaused; renderBagelAnimation();
+    });
+    bagelMotion.addEventListener("change", renderBagelAnimation);
+    renderBagelAnimation();
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Tab") return;
+      var dialog = document.activeElement.closest("dialog[open]");
+      if (!dialog) return;
+      var controls = Array.from(dialog.querySelectorAll("button,input,select,textarea,a[href],summary,[tabindex]"))
+        .filter(function (control) { return control.tabIndex >= 0 && !control.matches(":disabled") && control.getClientRects().length; });
+      if (!controls.length) return;
+      var first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
     document.title = config.appName;
     document.getElementById("app-title").textContent = config.appName;
     document.getElementById("appVersion").textContent = config.appVersion;
@@ -31,6 +57,7 @@
       setAccess: setAccess,
       selectTab: selectTab,
       setPanelState: setPanelState,
+      setNotice: header.notice,
     });
     var auth = window.EarlyBirdsAuth;
     var model = window.createEarlyBirdsModel(config);
@@ -46,15 +73,16 @@
     store.subscribe(function (event) {
       var phase = event.status.phase;
       var pending = phase === "loading" || phase === "saving";
+      header.network(pending, phase === "saving");
       document.getElementById("refreshButton").disabled = pending;
-      document.getElementById("dataStatus").textContent = phase === "error" ? "" : event.status.message +
-        (event.status.source === "local" && phase === "ready" ? " Viewing local preview data." : "");
+      header.notice("dataStatus", phase === "error" ? "" : event.status.message +
+        (event.status.source === "local" && phase === "ready" ? " Viewing local preview data." : ""));
       document.getElementById("dataError").textContent = phase === "error" ? event.status.message : "";
       var save = event.status.save;
       var saveFailed = save.outcome === "failed" || save.outcome === "uncertain";
-      document.getElementById("saveStatus").textContent = saveFailed ? "" : save.message;
+      header.notice("saveStatus", saveFailed ? "" : save.message);
       document.getElementById("saveError").textContent = saveFailed ? save.message : "";
-      document.getElementById("cleanupNotice").textContent = event.status.cleanup.message;
+      header.notice("cleanupNotice", event.status.cleanup.message, ["failed", "deferred"].indexOf(event.status.cleanup.outcome) >= 0);
       document.getElementById("staleNotice").hidden = !event.status.stale;
       document.getElementById("retrySaveButton").hidden = !save.canRetry;
       document.getElementById("retrySaveButton").disabled = pending;
@@ -114,6 +142,49 @@
       document.addEventListener("visibilitychange", refreshOnReturn);
       refresh();
     });
+  }
+
+  function initHeader() {
+    var button = document.getElementById("menuButton"), menu = document.getElementById("userMenu");
+    function close(returnFocus) {
+      menu.hidden = true; button.setAttribute("aria-expanded", "false"); button.setAttribute("aria-label", "Open account menu");
+      if (returnFocus) button.focus({ preventScroll: true });
+    }
+    button.addEventListener("click", function () {
+      var opening = menu.hidden;
+      menu.hidden = !opening; button.setAttribute("aria-expanded", String(opening));
+      button.setAttribute("aria-label", opening ? "Close account menu" : "Open account menu");
+    });
+    document.addEventListener("click", function (event) {
+      if (!menu.hidden && !menu.contains(event.target) && !button.contains(event.target)) close(false);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !menu.hidden) { event.preventDefault(); close(true); }
+    });
+    menu.addEventListener("click", function (event) {
+      if (event.target.closest("button")) close(!document.querySelector("dialog[open]"));
+    });
+    window.addEventListener("early-birds-session-change", function () { close(false); });
+    var noticeTimers = Object.create(null);
+    var progress = document.getElementById("refreshProgress"), hideProgress;
+    return {
+      notice: function (id, text, persistent) {
+        var notice = document.getElementById(id);
+        window.clearTimeout(noticeTimers[id]);
+        notice.textContent = text; notice.hidden = !text;
+        if (text && !persistent) noticeTimers[id] = window.setTimeout(function () { notice.hidden = true; }, 3500);
+      },
+      network: function (pending, saving) {
+        window.clearTimeout(hideProgress);
+        if (pending) {
+          progress.hidden = false;
+          progress.setAttribute("aria-label", saving ? "Saving shared data" : "Refreshing shared data");
+        } else {
+          // Let even a quick local refresh show movement without changing layout.
+          hideProgress = window.setTimeout(function () { progress.hidden = true; }, 350);
+        }
+      },
+    };
   }
 
   function selectTab(name) {

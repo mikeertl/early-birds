@@ -11,11 +11,13 @@ async function main() {
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'early-birds-auth-'));
   const chrome = spawn(process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
     '--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+    '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank',
   ], { stdio: 'ignore' });
   let launchError;
   chrome.on('error', error => { launchError = error; });
   let ws;
+  let keepAlive;
   try {
     let port;
     for (let n = 0; n < 100; n++) {
@@ -44,11 +46,12 @@ async function main() {
         else callback.resolve(message.result);
       }
       if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.text);
+      if (message.method === 'Runtime.consoleAPICalled' && message.params.args[0]?.value?.startsWith('PASS: ')) console.log(message.params.args[0].value);
     });
     async function cdp(method, params = {}) {
       return new Promise((resolve, reject) => {
         const id = ++sequence;
-        const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Timed out: ${method}`)); }, 15000);
+        const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Timed out: ${method}`)); }, 60000);
         pending.set(id, {
           resolve: value => { clearTimeout(timer); resolve(value); },
           reject: error => { clearTimeout(timer); reject(error); },
@@ -63,11 +66,18 @@ async function main() {
     }
     await cdp('Runtime.enable');
     await cdp('Page.enable');
+    // Keep headless Chrome scheduling timers during long async walkthroughs.
+    keepAlive=setInterval(()=>{void cdp('Runtime.evaluate',{expression:'void 0'}).catch(()=>{});},250);
     await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
       const realFetch = window.fetch.bind(window);
       window.tokenChecks = 0;
       window.mockFiles = {};
       window.mockWriteAttempts = 0;
+      window.waitForSharedIdle = async () => {
+        await new Promise(resolve=>setTimeout(resolve,150));
+        for(let n=0;n<200 && document.getElementById('refreshButton').disabled;n++) await new Promise(resolve=>setTimeout(resolve,10));
+        if(document.getElementById('refreshButton').disabled) throw new Error('Shared operation did not settle');
+      };
       window.fetch = async (url, options = {}) => {
         if (!String(url).startsWith('https://api.github.com/')) {
           if (new URL(url, location.href).pathname.endsWith('/data/current.json')) {
@@ -116,6 +126,67 @@ async function main() {
       if (await evaluate('Boolean(window.EarlyBirdsUI && document.getElementById("profileUser").options.length === 10)')) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+    assert(await evaluate(`document.getElementById('userMenu').hidden && document.getElementById('menuButton').getAttribute('aria-expanded')==='false'`));
+    for(const width of [320,390,768,1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height:800,deviceScaleFactor:1,mobile:width<540});
+      assert(await evaluate(`(()=>{const tabs=document.querySelector('.section-navigation'),top=tabs.getBoundingClientRect().top;document.getElementById('menuButton').click();const menu=document.getElementById('userMenu').getBoundingClientRect();return !document.getElementById('userMenu').hidden && document.getElementById('menuButton').getAttribute('aria-expanded')==='true' && menu.right<=innerWidth && menu.left>=0 && tabs.getBoundingClientRect().top===top && document.documentElement.scrollWidth<=innerWidth && (innerWidth>540 || top<110);})()`));
+      await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+      assert(await evaluate(`document.getElementById('userMenu').hidden && document.activeElement===document.getElementById('menuButton')`));
+    }
+    await evaluate(`document.getElementById('menuButton').click();document.getElementById('gamesTabButton').click()`);
+    assert(await evaluate(`document.getElementById('userMenu').hidden`));
+    await evaluate(`window.contrastRatio=(a,b)=>{const luminance=color=>{const channels=color.match(/[\\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;});return channels[0]*0.2126+channels[1]*0.7152+channels[2]*0.0722;};const x=luminance(a),y=luminance(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);}`);
+    assert(await evaluate(`(()=>{const button=document.getElementById('menuButton'),style=getComputedStyle(button),line=getComputedStyle(button.querySelector('span'));return window.contrastRatio(line.backgroundColor,style.backgroundColor)>=4.5 && button.getBoundingClientRect().width>=44 && parseFloat(line.height)>=3;})()`));
+    async function key(name,code,modifiers=0) {
+      await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:name,code:name,windowsVirtualKeyCode:code,nativeVirtualKeyCode:code,modifiers,...(name==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})});
+      await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:name,code:name,windowsVirtualKeyCode:code,nativeVirtualKeyCode:code,modifiers});
+    }
+    await cdp('Page.bringToFront');
+    await cdp('Emulation.setFocusEmulationEnabled',{enabled:true});
+    await evaluate(`document.getElementById('menuButton').focus()`);await key('Enter',13);
+    assert(await evaluate(`!document.getElementById('userMenu').hidden`));
+    await key('Tab',9);assert.equal(await evaluate('document.activeElement.id'),'refreshButton');
+    await key('Tab',9);assert.equal(await evaluate('document.activeElement.id'),'signInButton');
+    await key('Enter',13);
+    assert(await evaluate(`document.getElementById('profileDialog').open && document.activeElement===document.getElementById('profileUser') && [...document.querySelectorAll('#profileDialog input,#profileDialog select')].every(field=>field.labels.length>0) && getComputedStyle(document.activeElement).outlineStyle!=='none'`));
+    await evaluate(`document.getElementById('cancelProfileButton').focus()`);await key('Tab',9);
+    assert.equal(await evaluate('document.activeElement.id'),'profileUser');
+    await key('Escape',27);await new Promise(resolve=>setTimeout(resolve,40));
+    assert(await evaluate(`!document.getElementById('profileDialog').open && document.activeElement===document.getElementById('menuButton')`));
+    await evaluate(`document.getElementById('gamesTabButton').focus()`);await key('ArrowRight',39);
+    assert(await evaluate(`document.getElementById('bagelsTabButton').getAttribute('aria-selected')==='true' && document.activeElement===document.getElementById('bagelsTabButton')`));
+    await key('ArrowLeft',37);
+    await cdp('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('#refreshProgress span')).animationName`),'none');
+    for(let n=0;n<20 && !await evaluate(`document.getElementById('bagelAnimation').getAttribute('src').endsWith('bagel-still.png')`);n++) await new Promise(resolve=>setTimeout(resolve,50));
+    assert(await evaluate(`document.getElementById('bagelAnimation').getAttribute('src')==='assets/bagel-still.png' && document.getElementById('bagelAnimationButton').hidden`));
+    await cdp('Emulation.setEmulatedMedia',{features:[]});
+    for(let n=0;n<20 && !await evaluate(`document.getElementById('bagelAnimation').getAttribute('src').endsWith('bagel.gif')`);n++) await new Promise(resolve=>setTimeout(resolve,50));
+    assert(await evaluate(`document.getElementById('bagelAnimation').decode().then(()=>document.getElementById('bagelAnimation').naturalWidth===640)`));
+    assert.equal(await evaluate(`document.getElementById('bagelAnimation').getAttribute('src')`),'assets/bagel.gif');
+    await evaluate(`document.getElementById('bagelAnimationButton').click()`);
+    assert(await evaluate(`document.getElementById('bagelAnimation').getAttribute('src')==='assets/bagel-still.png' && document.getElementById('bagelAnimationButton').textContent==='Resume animation' && document.getElementById('bagelAnimationButton').getAttribute('aria-pressed')==='true'`));
+    await evaluate(`document.getElementById('bagelAnimationButton').click()`);
+    assert.equal(await evaluate(`document.getElementById('bagelAnimation').getAttribute('src')`),'assets/bagel.gif');
+    if(process.env.TEST_BRANDING_SCREENSHOT_PATH) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+      const shot=await cdp('Page.captureScreenshot',{format:'png'});await fs.writeFile(process.env.TEST_BRANDING_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+      await cdp('Emulation.setDeviceMetricsOverride',{width:1280,height:850,deviceScaleFactor:1,mobile:false});
+    }
+    console.log('Hamburger contrast/touch target, keyboard menu/dialog/tab navigation, focus visibility, form labels and reduced-motion refresh pass');
+    await new Promise(resolve=>setTimeout(resolve,200));
+    const headerTop=await evaluate(`document.querySelector('.section-navigation').getBoundingClientRect().top`);
+    await evaluate(`window.noticeTestStarted=performance.now();window.EarlyBirdsUI.setNotice('authStatus','Header test notice');document.getElementById('authError').textContent='Persistent test failure'`);
+    await evaluate(`new Promise(resolve=>setTimeout(resolve,4200))`);
+    const noticeTiming=await evaluate(`({hidden:document.getElementById('authStatus').hidden,elapsed:performance.now()-window.noticeTestStarted})`);
+    assert(noticeTiming.hidden,'Transient notice expires: '+JSON.stringify(noticeTiming));
+    assert(await evaluate(`!document.getElementById('authError').hidden && document.getElementById('authError').getBoundingClientRect().width>0`),'Error notice remains visible');
+    assert.equal(await evaluate(`document.querySelector('.section-navigation').getBoundingClientRect().top`),headerTop,'Notice does not shift layout');
+    await evaluate(`window.EarlyBirdsUI.setNotice('authStatus','');document.getElementById('authError').textContent='';document.getElementById('menuButton').click();document.getElementById('refreshButton').click()`);
+    assert(await evaluate(`!document.getElementById('refreshProgress').hidden && document.getElementById('userMenu').hidden`));
+    for(let n=0;n<60 && !await evaluate(`document.getElementById('refreshProgress').hidden`);n++) await new Promise(resolve=>setTimeout(resolve,50));
+    assert(await evaluate(`document.getElementById('refreshProgress').hidden`));
+    console.log('Compact header/menu fits phones, closes outside/on Escape/action, restores focus and shows refresh movement; notices expire without layout shift while errors persist');
     const checks = await evaluate(`(async () => {
       const checks = [];
       const el = id => document.getElementById(id);
@@ -130,8 +201,11 @@ async function main() {
         ];
       }
       window.gameFixtures=gameFixtures;
-      const wait = () => new Promise(resolve => setTimeout(resolve, 30));
-      function check(value, label) { if (!value) throw new Error(label); checks.push(label); }
+      async function wait() {
+        await new Promise(resolve=>setTimeout(resolve,30));
+        for(let n=0;n<200 && el('refreshButton').disabled;n++) await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      function check(value, label) { if (!value) throw new Error(label); checks.push(label); console.log('PASS: '+label); }
       async function submit(token, user = 'mike-ertl', admin = false) {
         el('profileUser').value = user;
         el('profileToken').value = token;
@@ -187,7 +261,11 @@ async function main() {
       const game=id=>el('gamesList').querySelector('[data-court-id="'+id+'"]');
       const control=(id,status)=>game(id).querySelector('[data-participation="'+status+'"]');
       const membership=id=>window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id===id);
-      async function place(id,status){control(id,status).click();await new Promise(r=>setTimeout(r,150));}
+      async function place(id,status){
+        for(let n=0;n<100 && el('refreshButton').disabled;n++) await wait();
+        control(id,status).click();await window.waitForSharedIdle();
+        for(let n=0;n<100 && el('refreshButton').disabled;n++) await wait();
+      }
       check(!control('simultaneous-a','green') && control('simultaneous-a','none') && control('simultaneous-a','reserved'), 'green player gets Remove me and Reserve');
       check(control('simultaneous-b','green').disabled && control('simultaneous-b','none'), 'overlapping green place blocks reserve promotion');
       await place('simultaneous-a','reserved');
@@ -205,13 +283,13 @@ async function main() {
       fullState.courts.find(c=>c.id==='later').green=['akiko','arda','ellen','dimitar'];
       window.mockFiles['data/current.json']=JSON.stringify(fullState);await window.EarlyBirdsStore.refresh();
       const joinsBefore=window.mockWriteAttempts;
-      control('later','green').click();control('later','green').click();await new Promise(r=>setTimeout(r,150));
+      control('later','green').click();control('later','green').click();await window.waitForSharedIdle();
       check(window.mockWriteAttempts===joinsBefore+1 && membership('later').green.length===4 && membership('later').reserved.filter(id=>id==='mike-ertl').length===1, 'full-court double join adds exactly one yellow reserve');
       check(!control('later','green') && control('later','none') && game('later').querySelector('.participation-status').textContent.includes('full'), 'full reserve sees Remove me and a clear outcome');
       async function externalChange(change, returning=false) {
         const state=JSON.parse(window.mockFiles['data/current.json']);change(state);
         window.mockFiles['data/current.json']=JSON.stringify(state);
-        if(returning){window.dispatchEvent(new Event('focus'));await new Promise(r=>setTimeout(r,350));}
+        if(returning){window.dispatchEvent(new Event('focus'));await new Promise(r=>setTimeout(r,350));await window.waitForSharedIdle();}
         else await window.EarlyBirdsStore.refresh();
       }
       await externalChange(state=>{state.courts.find(c=>c.id==='later').green.pop();},true);
@@ -232,11 +310,11 @@ async function main() {
       check(window.mockWriteAttempts===attemptsBeforeOverlap && control('simultaneous-b','green').disabled && game('simultaneous-b').querySelector('.participation-error').textContent.includes('Choose Reserve'), 'stale overlapping join is rejected without write and refreshed actions explain Reserve');
       window.denySave=true;await place('later','none');
       check(membership('later').reserved.includes('mike-ertl') && game('later').querySelector('.participation-error').textContent.includes('denied') && !el('retrySaveButton').hidden, 'failed membership change leaves colours and saved membership unchanged');
-      window.denySave=false;el('retrySaveButton').click();await new Promise(r=>setTimeout(r,150));
+      window.denySave=false;el('retrySaveButton').click();await window.waitForSharedIdle();
       check(!membership('later').reserved.includes('mike-ertl') && game('later').querySelector('.participation-status').textContent.includes('removed'), 'global retry updates membership and card feedback');
       window.loseAckOnce=true;await place('later','reserved');
       check(window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && [...document.querySelectorAll('[data-participation]')].every(button=>button.disabled), 'uncertain participation save blocks conflicting new actions');
-      window.failShared=false;el('retrySaveButton').click();await new Promise(r=>setTimeout(r,150));
+      window.failShared=false;el('retrySaveButton').click();await window.waitForSharedIdle();
       check(membership('later').reserved.filter(id=>id==='mike-ertl').length===1 && !control('later','none').disabled, 'uncertain participation retry confirms one membership and unlocks controls');
       const management=(id,action)=>game(id).querySelector('[data-court-management="'+action+'"]');
       const adminManagement=(id,action)=>el('adminCourtsList').querySelector('[data-court-id="'+id+'"] [data-court-management="'+action+'"]');
@@ -245,11 +323,11 @@ async function main() {
       management('simultaneous-a','edit').click();
       check(el('courtDialog').open && el('courtTitle').textContent==='Edit court' && el('courtDate').value==='2099-10-14' && el('courtCode').value==='012345' && el('courtBookerSelect').hidden && el('courtBooker').value===window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id==='mike-ertl').name, 'edit prefills booking and keeps ordinary booker readonly');
       const editedPlayers=JSON.stringify([membership('simultaneous-a').green,membership('simultaneous-a').reserved]);
-      el('courtCode').focus();el('courtCode').value='*001234';el('courtCode').dispatchEvent(new Event('input',{bubbles:true}));const editBefore=window.mockWriteAttempts;el('courtForm').requestSubmit();el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      el('courtCode').focus();el('courtCode').value='*001234';el('courtCode').dispatchEvent(new Event('input',{bubbles:true}));const editBefore=window.mockWriteAttempts;el('courtForm').requestSubmit();el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && window.mockWriteAttempts===editBefore+1 && membership('simultaneous-a').code==='001234' && JSON.stringify([membership('simultaneous-a').green,membership('simultaneous-a').reserved])===editedPlayers, 'double edit saves once, normalises code and preserves membership');
       management('simultaneous-a','edit').click();el('courtCode').value='002345';
       const independent=JSON.parse(window.mockFiles['data/current.json']);independent.courts.find(c=>c.id==='simultaneous-a').courtNumber=3;window.racingState=independent;
-      el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,200));
+      el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && membership('simultaneous-a').courtNumber===3 && membership('simultaneous-a').code==='002345', 'edit conflict merges independent fields');
       management('simultaneous-a','edit').click();el('courtCode').value='003456';
       const sameField=JSON.parse(window.mockFiles['data/current.json']);sameField.courts.find(c=>c.id==='simultaneous-a').code='004567';window.mockFiles['data/current.json']=JSON.stringify(sameField);
@@ -259,11 +337,11 @@ async function main() {
       check(el('courtCode').value==='004567' && el('courtError').textContent==='', 'Load latest details explicitly replaces conflicting edit');
       el('courtCode').value='005678';window.denySave=true;el('courtForm').requestSubmit();await wait();el('closeCourtButton').click();management('simultaneous-a','edit').click();
       check(el('courtCode').value==='005678' && el('saveCourtButton').textContent.includes('Retry'), 'failed edit draft survives closing and reopening');
-      window.denySave=false;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      window.denySave=false;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && membership('simultaneous-a').code==='005678', 'failed edit retries original change');
-      management('simultaneous-a','edit').click();el('courtCode').value='006789';window.loseAckOnce=true;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      management('simultaneous-a','edit').click();el('courtCode').value='006789';window.loseAckOnce=true;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(el('courtDialog').open && el('courtFields').disabled && [...document.querySelectorAll('[data-court-management]')].every(button=>button.disabled), 'uncertain edit locks details and other management');
-      window.failShared=false;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      window.failShared=false;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && membership('simultaneous-a').code==='006789', 'uncertain edit reconciles without replacement');
       management('simultaneous-a','delete').click();const cancelBefore=window.mockWriteAttempts;
       check(el('courtTitle').textContent==='Delete court?' && el('courtFields').hidden && el('courtDescription').textContent.includes('Recorded bagels will be kept'), 'deletion requires named booking confirmation with history explanation');
@@ -276,7 +354,7 @@ async function main() {
       check(!el('adminPanel').hidden && el('gamesPanel').hidden && el('adminCourtsList').children.length===3, 'Admin tab displays all court management cards');
       adminManagement('simultaneous-b','edit').click();
       check(!el('courtBookerSelect').hidden && el('courtBooker').hidden && el('courtBookerSelect').value==='akiko', 'Admin gets booked-by selector');
-      el('courtBookerSelect').value='arda';el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      el('courtBookerSelect').value='arda';el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && membership('simultaneous-b').bookedBy==='arda' && membership('simultaneous-b').green.join(',')==='akiko' && membership('simultaneous-b').reserved.join(',')==='mike-ertl', 'Admin changes ownership without enrolling or moving players');
       check(!el('adminPanel').hidden && el('adminPanel').contains(document.activeElement), 'Admin save keeps tab and focus in Admin');
       el('profileButton').click();await submit('', 'mike-ertl', false);await wait();
@@ -289,12 +367,12 @@ async function main() {
       check(el('courtDescription').textContent.includes('09:00'), 'deletion review shows updated booking details');
       window.denySave=true;el('courtForm').requestSubmit();await wait();
       check(el('courtDialog').open && membership('simultaneous-a') && el('courtError').textContent.includes('denied'), 'rejected deletion keeps court and offers retry');
-      window.denySave=false;window.loseAckOnce=true;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      window.denySave=false;window.loseAckOnce=true;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(el('courtDialog').open && !el('saveCourtButton').disabled && el('courtError').textContent.includes('not confirmed'), 'uncertain deletion remains open for reconciliation');
-      window.failShared=false;el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      window.failShared=false;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && !game('simultaneous-a') && !membership('simultaneous-a'), 'booker deletion reconciles and removes card and participation');
       el('profileButton').click();await submit('', 'mike-ertl', true);await wait();
-      el('adminTabButton').click();adminManagement('later','delete').click();el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      el('adminTabButton').click();adminManagement('later','delete').click();el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && !membership('later') && membership('simultaneous-b'), 'Admin deletes another bookers court while preserving other games');
       el('profileButton').click();await submit('', 'mike-ertl', false);await wait();
       window.allowWrites=false;window.fixtureState=null;delete window.mockFiles['data/current.json'];await window.EarlyBirdsStore.refresh();
@@ -321,7 +399,7 @@ async function main() {
       el('courtCode').focus();el('courtCode').value='*012345';el('courtCode').dispatchEvent(new Event('input',{bubbles:true}));
       check(el('courtCode').value==='012345', 'pasted star normalised and leading zero retained');
       const beforeSave=window.mockWriteAttempts;el('courtForm').requestSubmit();el('courtForm').requestSubmit();
-      await new Promise(resolve=>setTimeout(resolve,150));
+      await window.waitForSharedIdle();
       check(!el('courtDialog').open && window.mockWriteAttempts===beforeSave+1, 'double submit creates exactly one booking and closes on confirmation');
       let created=window.EarlyBirdsStore.getSnapshot().state.courts;
       check(created.length===1 && created[0].bookedBy==='mike-ertl' && created[0].green.length===1 && created[0].green[0]==='mike-ertl' && created[0].code==='012345', 'saved court automatically enrols booker and stores six-digit code');
@@ -333,13 +411,13 @@ async function main() {
       check(el('courtDialog').open && el('courtCode').value==='001234' && el('courtDate').value==='2099-10-16', 'denied booking keeps typed form values');
       el('closeCourtButton').click();el('addCourtButton').click();
       check(el('courtCode').value==='001234' && el('saveCourtButton').textContent.includes('Retry'), 'closing failed form preserves its draft');
-      window.denySave=false;el('courtForm').requestSubmit();await new Promise(resolve=>setTimeout(resolve,150));
+      window.denySave=false;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && window.EarlyBirdsStore.getSnapshot().state.courts.some(c=>c.id===retainedId && c.code==='001234'), 'form retry uses same booking ID and original values');
       el('addCourtButton').click();el('courtDate').value='2099-10-17';el('courtNumber').value='1';el('courtCode').value='002345';
-      window.loseAckOnce=true;el('courtForm').requestSubmit();await new Promise(resolve=>setTimeout(resolve,150));
+      window.loseAckOnce=true;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(el('courtDialog').open && el('courtFields').disabled && !el('saveCourtButton').disabled && el('courtError').textContent.includes('not confirmed'), 'uncertain save freezes details while allowing reconciliation');
       const unknownId=window.EarlyBirdsStore.getRecovery().action.court.id;
-      window.failShared=false;el('courtForm').requestSubmit();await new Promise(resolve=>setTimeout(resolve,100));
+      window.failShared=false;el('courtForm').requestSubmit();await window.waitForSharedIdle();
       check(!el('courtDialog').open && window.EarlyBirdsStore.getSnapshot().state.courts.filter(c=>c.id===unknownId).length===1, 'uncertain booking reconciles without a duplicate');
       window.mockFiles['data/current.json']=await(await fetch('data/current.json')).text();await window.EarlyBirdsStore.refresh();
       window.allowWrites = true; window.denySave = true;
@@ -355,7 +433,7 @@ async function main() {
       el('refreshButton').click(); await wait();
       check(el('saveError').textContent.includes('not saved'), 'refresh does not erase failed-save outcome');
       window.denySave = false; el('retrySaveButton').click();
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await window.waitForSharedIdle();
       check(el('saveStatus').textContent.includes('saved') && el('saveError').textContent === '' && el('retrySaveButton').hidden, 'retry button confirms save and clears recovery');
       check(window.EarlyBirdsStore.getSnapshot().state.courts[0].code === '012345', 'retry saves original values');
       window.allowWrites = false;
@@ -375,15 +453,17 @@ async function main() {
       await wait();
       check(!auth.getSession() && el('adminTabButton').hidden && !el('gamesPanel').hidden, 'sign-out leaves Admin');
       check(localStorage.getItem(keys.token) === 'test-valid' && !localStorage.getItem(keys.userId) && !localStorage.getItem(keys.adminMode), 'sign-out retains token while clearing player/admin');
+      check(localStorage.getItem(keys.lastUserId)==='akiko', 'sign-out separately remembers the last successful player ID');
       check(code.textContent.includes('Sign in') && !code.outerHTML.includes('012345'), 'sign-out remasks code');
       check(localStorage.getItem('longbourn-user-id') === 'unrelated', 'Longbourn storage untouched');
       el('signInButton').click();
+      check(el('profileUser').value==='akiko' && !el('profileAdmin').checked, 'sign-in preselects the remembered name without restoring Admin mode');
       check(el('profileToken').value === '' && !el('profileToken').required && el('tokenHelp').textContent.includes('saved'), 'saved token is reusable without exposing it in the input');
-      await submit('', 'akiko');
+      el('profileForm').requestSubmit(); await wait();
       check(auth.getSession().token === 'test-valid', 'sign back in without pasting token');
       el('profileButton').click(); el('forgetTokenButton').click(); await wait();
       check(!auth.getSession() && !localStorage.getItem(keys.token), 'forget token signs out and removes credential');
-      el('signInButton').click(); check(el('profileToken').required, 'forget token requires a new paste');
+      el('signInButton').click(); check(el('profileToken').required && el('profileUser').value==='akiko', 'forget token requires a new paste while keeping the name preference');
       el('cancelProfileButton').click(); await wait();
       el('signInButton').click();
       await submit('test-slow'); el('cancelProfileButton').click();
@@ -400,11 +480,12 @@ async function main() {
       directory.users.find(u => u.id === 'mike-ertl').active = false;
       auth.setUsers(directory);
       check(!auth.getSession() && ![...el('profileUser').options].some(o=>o.value==='mike-ertl'), 'deactivation signs out and removes choice');
+      el('signInButton').click();check(el('profileUser').value==='', 'inactive remembered player is not selected');el('cancelProfileButton').click();
       auth.setUsers(await (await fetch('data/users.json')).json());
       el('signInButton').click(); await submit('test-valid', 'akiko', true);
       return checks;
     })()`);
-    console.log(checks.join('\n'));
+    console.log('Completed '+checks.length+' core flow checks');
     await cdp('Page.reload');
     for (let n = 0; n < 100; n++) {
       if (await evaluate('Boolean(window.EarlyBirdsAuth && window.EarlyBirdsAuth.getSession())')) break;
@@ -426,6 +507,8 @@ async function main() {
     assert.equal(await evaluate('localStorage.getItem(window.EarlyBirdsConfig.storageKeys.token)'), 'test-valid');
     console.log('Signed-out reload keeps token without restoring a player session');
     await evaluate('document.getElementById("signInButton").click()');
+    assert(await evaluate(`document.getElementById('profileUser').value==='akiko' && !document.getElementById('profileAdmin').checked && !window.EarlyBirdsAuth.getSession()`));
+    console.log('Signed-out reload remembers the last name without restoring player access or Admin mode');
     for (const width of [320, 390, 768, 1280]) {
       await cdp('Emulation.setDeviceMetricsOverride', {width, height:850, deviceScaleFactor:1, mobile:width<540});
       assert(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'));
@@ -435,7 +518,7 @@ async function main() {
     await evaluate(`(async()=>{
       document.getElementById('cancelProfileButton').click();await new Promise(r=>setTimeout(r,30));
       document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
       document.getElementById('addCourtButton').click();
     })()`);
     for (const width of [320, 390, 768, 1280]) {
@@ -472,7 +555,7 @@ async function main() {
     await evaluate(`(async()=>{
       document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';
       document.getElementById('profileAdmin').checked=true;document.getElementById('profileForm').requestSubmit();
-      await new Promise(r=>setTimeout(r,150));
+      await window.waitForSharedIdle();
       document.getElementById('adminTabButton').click();
     })()`);
     for (const action of ['edit','delete']) {
@@ -510,7 +593,7 @@ async function main() {
       window.allowWrites=Boolean(localStorage.getItem('early-birds-user-id'));
     `});
     async function reloadExpiry() {
-      await cdp('Page.reload');await new Promise(r=>setTimeout(r,200));
+      await cdp('Page.reload');await new Promise(resolve=>setTimeout(resolve,100));
       for(let n=0;n<60;n++) {
         if(await evaluate('Boolean(window.EarlyBirdsStore && window.EarlyBirdsStore.getSnapshot() && !document.getElementById("refreshButton").disabled)')) return;
         await new Promise(r=>setTimeout(r,50));
@@ -527,20 +610,21 @@ async function main() {
     await evaluate(`(async()=>{
       window.allowWrites=true;window.denySave=true;
       document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';document.getElementById('profileAdmin').checked=true;
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,200));
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`document.getElementById('cleanupNotice').textContent.includes('could not be saved') && document.getElementById('saveError').textContent==='' && !window.EarlyBirdsStore.getRecovery() && document.getElementById('adminCourtsList').children.length===1 && document.getElementById('gamesList').children.length===1`));
     console.log('Denied cleanup keeps expired courts hidden in Games/Admin and shows separate maintenance error');
-    await evaluate(`(async()=>{window.denySave=false;window.loseAckOnce=true;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,200));})()`);
+    await evaluate(`(async()=>{window.denySave=false;window.loseAckOnce=true;document.getElementById('refreshButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('cleanupNotice').textContent.includes('not confirmed') && !window.EarlyBirdsStore.getRecovery()`));
     const cleanupWrites=await evaluate('window.mockWriteAttempts');
-    await evaluate(`(async()=>{window.failShared=false;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('refreshButton').click();await window.waitForSharedIdle();})()`);
     assert.equal(await evaluate('window.mockWriteAttempts'),cleanupWrites);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.length===1 && window.EarlyBirdsStore.getSnapshot().state.bagels[0].winners[0].name==='Mike before rename' && document.getElementById('cleanupNotice').textContent===''`));
     console.log('Refresh reconciles unknown cleanup acknowledgement without another write or lost history');
     await reloadExpiry();
     assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().state.courts.length'),2);
-    await evaluate(`window.expiryNow='2026-10-15T23:00:00.000Z'`);await new Promise(r=>setTimeout(r,350));
+    await evaluate(`window.expiryNow='2026-10-15T23:00:00.000Z'`);
+    for(let n=0;n<60 && !await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.length===1 && !document.getElementById('refreshButton').disabled`);n++) await new Promise(resolve=>setTimeout(resolve,50));
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.length===1 && window.EarlyBirdsStore.getSnapshot().state.bagels.length===1 && document.getElementById('adminCourtsList').children.length===1`));
     console.log('Open signed-in page persists London midnight cleanup and preserves future court/history');
     await cdp('Page.addScriptToEvaluateOnNewDocument',{source:`
@@ -556,7 +640,7 @@ async function main() {
     assert(await evaluate(`Boolean(document.querySelector('${gameBagel}') && document.querySelector('${adminBagel}'))`));
     console.log('Bagel action appears at one-hour end via local timer, including two-player singles');
     const bagelWrites=await evaluate('window.mockWriteAttempts');
-    await evaluate(`(async()=>{document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.querySelector('${gameBagel}').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('bagelDialog').open && document.getElementById('bagelEligibility').textContent.includes('Eligible') && !document.getElementById('bagelFields').disabled`));
     assert.equal(await evaluate('window.mockWriteAttempts'),bagelWrites);
     console.log('Bagel action rechecks shared data and opens the reporting form, without writing');
@@ -569,26 +653,26 @@ async function main() {
       const state=JSON.parse(window.mockFiles['data/current.json']);const court=state.courts.find(c=>c.id==='expiry-today');
       court.green=['akiko'];court.reserved=['mike-ertl'];window.mockFiles['data/current.json']=JSON.stringify(state);
     })()`);
-    await evaluate(`(async()=>{document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.querySelector('${gameBagel}').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('bagelEligibility').textContent.includes('no longer eligible') && document.getElementById('bagelFields').disabled && !document.querySelector('${gameBagel}') && Boolean(document.querySelector('${adminBagel}'))`));
     console.log('Stale Bagel action rejects changed green membership; Admin reporting stays in Admin');
     await evaluate(`(async()=>{
       document.getElementById('closeBagelButton').click();document.getElementById('adminTabButton').click();
-      document.getElementById('historicalBagelButton').click();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('historicalBagelButton').click();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`document.getElementById('bagelContext').textContent.includes('Historical entry') && document.getElementById('bagelEligibility').textContent.includes('Eligible')`));
     console.log('Admin historical action works without selecting a live court');
     await evaluate(`(async()=>{
       document.getElementById('closeBagelButton').click();document.getElementById('profileButton').click();
-      document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
       const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.find(c=>c.id==='expiry-today').green=['mike-ertl','akiko'];state.courts.find(c=>c.id==='expiry-today').reserved=[];
       window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();
-      window.failShared=true;document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));
+      window.failShared=true;document.querySelector('${gameBagel}').click();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`document.getElementById('bagelEligibility').textContent.includes('Could not check eligibility') && document.getElementById('bagelFields').disabled && document.getElementById('historicalBagelButton').hidden`));
     console.log('Failed eligibility refresh gives an error and never reports stale permission as confirmed');
     await evaluate(`(async()=>{
-      window.failShared=false;document.getElementById('closeBagelButton').click();document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));
+      window.failShared=false;document.getElementById('closeBagelButton').click();document.querySelector('${gameBagel}').click();await window.waitForSharedIdle();
       window.expiryNow='2026-10-15T23:00:00.000Z';window.dispatchEvent(new Event('focus'));await new Promise(r=>setTimeout(r,50));
     })()`);
     assert(await evaluate(`document.getElementById('bagelDialog').open && document.getElementById('bagelEligibility').textContent.includes('no longer eligible') && !document.querySelector('${gameBagel}')`));
@@ -599,7 +683,7 @@ async function main() {
     await evaluate(`(async()=>{
       window.expiryNow='2026-10-16T10:00:00.000Z';document.getElementById('signInButton').click();
       document.getElementById('profileUser').value='mike-ertl';document.getElementById('profileAdmin').checked=true;
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,200));
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
       document.getElementById('adminTabButton').click();document.getElementById('adminAddCourtButton').click();
     })()`);
     assert(await evaluate(`document.getElementById('courtDialog').open && document.getElementById('courtDate').value==='2026-10-16' && document.getElementById('courtTime').value==='08:00' && !document.getElementById('courtBookerSelect').hidden`));
@@ -607,7 +691,7 @@ async function main() {
     const missedWrites=await evaluate('window.mockWriteAttempts');
     await evaluate(`(async()=>{
       document.getElementById('courtNumber').value='2';document.getElementById('courtCode').value='001234';document.getElementById('courtBookerSelect').value='akiko';
-      document.getElementById('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('courtForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert.equal(await evaluate('window.mockWriteAttempts'),missedWrites+1);
     assert(await evaluate(`!document.getElementById('courtDialog').open && !document.getElementById('adminPanel').hidden && window.EarlyBirdsStore.getSnapshot().state.courts.some(c=>c.date==='2026-10-16' && c.time==='08:00' && c.courtNumber===2 && c.bookedBy==='akiko' && c.green.join(',')==='akiko')`));
@@ -615,7 +699,7 @@ async function main() {
     await evaluate(`(async()=>{
       const court=window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.courtNumber===2);
       document.querySelector('#adminCourtsList [data-court-id="'+court.id+'"] [data-court-management="edit"]').click();
-      document.getElementById('courtCode').value='002345';document.getElementById('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('courtCode').value='002345';document.getElementById('courtForm').requestSubmit();await window.waitForSharedIdle();
       document.getElementById('gamesTabButton').click();document.getElementById('addCourtButton').click();
       document.getElementById('courtDate').value='2026-10-16';document.getElementById('courtNumber').value='3';document.getElementById('courtCode').value='003456';
       document.getElementById('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,50));
@@ -627,66 +711,66 @@ async function main() {
     console.log('Admin backdating stops at today, preserving daily cleanup');
     await evaluate(`(async()=>{
       document.getElementById('closeCourtButton').click();document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
       const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.forEach(c=>{c.green=c.id==='expiry-future'?['mike-ertl','akiko']:[];c.reserved=[];});
       window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();
-      document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));
+      document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`!document.getElementById('bagelFields').disabled && document.getElementById('bagelFormat').value==='singles' && document.getElementById('bagelWinner1').options.length===3`));
     console.log('Two green players can report singles and selections exclude other players');
     await evaluate(`(()=>{document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelLoser1').value='mike-ertl';document.getElementById('bagelForm').requestSubmit();})()`);
     assert(await evaluate(`document.getElementById('bagelError').textContent.includes('different player')`));
     const setsBefore=await evaluate('window.EarlyBirdsStore.getSnapshot().state.bagels.length');
-    await evaluate(`(async()=>{document.getElementById('bagelLoser1').value='akiko';document.getElementById('bagelForm').requestSubmit();document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));})()`);
+    await evaluate(`(async()=>{document.getElementById('bagelLoser1').value='akiko';document.getElementById('bagelForm').requestSubmit();document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();})()`);
     assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().state.bagels.length'),setsBefore+1);
     assert(await evaluate(`document.getElementById('bagelStatus').textContent.includes('Bagel saved') && document.getElementById('saveBagelButton').hidden && !document.getElementById('existingBagels').hidden`));
     console.log('Singles double-submit creates one durable set and switches to recorded-set review');
-    await evaluate(`(async()=>{document.getElementById('closeBagelButton').click();document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.getElementById('closeBagelButton').click();document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('saveBagelButton').hidden && !document.getElementById('anotherBagelButton').hidden`));
     await evaluate(`(async()=>{
       document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelLoser1').value='akiko';
-      document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().state.bagels.length'),setsBefore+2);
     console.log('Explicit additional set permits identical teams with a new record ID');
     await evaluate(`(async()=>{
       document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='akiko';document.getElementById('bagelLoser1').value='mike-ertl';
-      window.denySave=true;document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      window.denySave=true;document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     const deniedSetId=await evaluate('window.EarlyBirdsStore.getRecovery().action.bagel.id');
-    await evaluate(`(async()=>{document.getElementById('closeBagelButton').click();document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.getElementById('closeBagelButton').click();document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('bagelWinner1').value==='akiko' && document.getElementById('saveBagelButton').textContent==='Retry save'`));
-    await evaluate(`(async()=>{window.denySave=false;document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));})()`);
+    await evaluate(`(async()=>{window.denySave=false;document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.filter(b=>b.id===${JSON.stringify(deniedSetId)}).length===1`));
     console.log('Rejected Bagel preserves selections across close/reopen and retries the same ID');
     await evaluate(`(async()=>{
       document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelLoser1').value='akiko';
-      window.loseAckOnce=true;document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      window.loseAckOnce=true;document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && document.getElementById('bagelFields').disabled && !document.getElementById('saveBagelButton').disabled && document.getElementById('anotherBagelButton').disabled`));
     const uncertainSetId=await evaluate('window.EarlyBirdsStore.getRecovery().action.bagel.id');
-    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.filter(b=>b.id===${JSON.stringify(uncertainSetId)}).length===1 && document.getElementById('bagelStatus').textContent.includes('Bagel saved')`));
     console.log('Unknown Bagel acknowledgement locks details and global retry confirms one set');
     await evaluate(`(async()=>{
       const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.find(c=>c.id==='expiry-future').green=['mike-ertl','akiko','arda','ellen'];window.mockFiles['data/current.json']=JSON.stringify(state);
-      document.getElementById('refreshBagelButton').click();await new Promise(r=>setTimeout(r,100));document.getElementById('anotherBagelButton').click();
+      document.getElementById('refreshBagelButton').click();await window.waitForSharedIdle();document.getElementById('anotherBagelButton').click();
       document.getElementById('bagelFormat').value='doubles';document.getElementById('bagelFormat').dispatchEvent(new Event('change'));
       document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelWinner2').value='akiko';document.getElementById('bagelLoser1').value='arda';document.getElementById('bagelLoser2').value='ellen';
-      document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.some(b=>b.sourceCourtId==='expiry-future' && b.winners.length===2 && b.losers.length===2 && b.date==='2026-10-16')`));
     console.log('Doubles records four distinct green players in equal teams with game date/source');
     await evaluate(`(async()=>{
       document.getElementById('closeBagelButton').click();document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=true;
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));document.getElementById('adminTabButton').click();
-      document.getElementById('historicalBagelButton').click();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();document.getElementById('adminTabButton').click();
+      document.getElementById('historicalBagelButton').click();await window.waitForSharedIdle();
       document.getElementById('bagelDate').value='2026-10-17';
     })()`);
     assert(await evaluate(`!document.getElementById('bagelDate').checkValidity()`));
     await evaluate(`(async()=>{
       document.getElementById('bagelDate').value='2026-10-14';document.getElementById('bagelDate').dispatchEvent(new Event('change'));
-      document.getElementById('bagelWinner1').value='ellen';document.getElementById('bagelLoser1').value='dimitar';document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('bagelWinner1').value='ellen';document.getElementById('bagelLoser1').value='dimitar';document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.some(b=>b.sourceCourtId===null && b.date==='2026-10-14' && b.winners[0].userId==='ellen' && b.losers[0].userId==='dimitar')`));
     console.log('Admin historical entry saves a past-date result with registered players and no court');
@@ -703,8 +787,8 @@ async function main() {
     }
     await evaluate(`(async()=>{
       document.getElementById('closeBagelButton').click();document.getElementById('profileButton').click();document.getElementById('profileUser').value='akiko';document.getElementById('profileAdmin').checked=false;
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
-      document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
+      document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`document.getElementById('bagelFields').hidden && document.getElementById('existingBagelsList').children.length>=5 && !document.getElementById('anotherBagelButton').disabled`));
     console.log('Another reporter sees existing sets and must explicitly start an additional set');
@@ -712,11 +796,11 @@ async function main() {
     await evaluate(`(async()=>{
       document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='akiko';document.getElementById('bagelLoser1').value='mike-ertl';
       const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.find(c=>c.id==='expiry-future').green=['mike-ertl','arda','ellen'];state.courts.find(c=>c.id==='expiry-future').reserved=['akiko'];
-      window.mockFiles['data/current.json']=JSON.stringify(state);document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      window.mockFiles['data/current.json']=JSON.stringify(state);document.getElementById('bagelForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert.equal(await evaluate('window.mockWriteAttempts'),staleSetWrites);
     assert(await evaluate(`document.getElementById('bagelError').textContent.includes('green player') && document.getElementById('bagelWinner1').value==='akiko'`));
-    await evaluate(`(async()=>{document.getElementById('refreshBagelButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.getElementById('refreshBagelButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('bagelFields').disabled && document.getElementById('bagelWinner1').value==='akiko' && document.getElementById('bagelEligibility').textContent.includes('no longer eligible')`));
     console.log('Bagel save rejects newly changed membership without writing or losing selections');
     const listWrites=await evaluate('window.mockWriteAttempts');
@@ -741,16 +825,16 @@ async function main() {
     console.log('Bagels sort newest game date first, then precise creation time and stable ID, without mutating shared order');
     assert(await evaluate(`!document.querySelector('#bagelsList').textContent.includes('Mike historical') && !document.querySelector('#bagelsList img:not(.bagel-icon)') && !document.querySelector('#bagelsList').textContent.includes('Ellen before rename') && document.querySelector('#bagelsList').textContent.includes('Ellen current <img src=x onerror=alert(1)>') && window.EarlyBirdsStore.getSnapshot().state.bagels[1].losers[1].name==='Ellen before rename'`));
     console.log('Bagels display literal current names, including inactive/renamed players, while preserving saved names and deleted-court history');
-    assert(await evaluate(`document.querySelector('[data-bagel-id="new-b"] .bagel-score').textContent==='6–0 · Doubles' && document.querySelector('[data-bagel-id="new-a"] .bagel-score').textContent==='6–0 · Singles' && document.querySelector('[data-bagel-id="new-b"] .bagel-winners').getAttribute('aria-label')==='Winners' && document.querySelector('[data-bagel-id="new-b"] .bagel-losers').getAttribute('aria-label')==='Losers' && document.querySelector('#bagelsList .bagel-icon').getAttribute('aria-hidden')==='true' && document.querySelector('#bagelsList .bagel-winners .bagel-face').textContent==='🙂' && document.querySelector('#bagelsList .bagel-losers .bagel-face').textContent==='🙁'`));
-    assert(await evaluate(`getComputedStyle(document.querySelector('#bagelsList .bagel-winners .player-chip')).color!==getComputedStyle(document.querySelector('#bagelsList .bagel-losers .player-chip')).color`));
-    console.log('Singles/doubles cards show bagel/date/score and labelled green winners with smiles and red losers with sad faces');
+    assert(await evaluate(`document.querySelector('[data-bagel-id="new-b"] .bagel-score').textContent==='6–0 · Doubles' && document.querySelector('[data-bagel-id="new-a"] .bagel-score').textContent==='6–0 · Singles' && document.querySelector('[data-bagel-id="new-b"] .bagel-winners').getAttribute('aria-label')==='Winners' && document.querySelector('[data-bagel-id="new-b"] .bagel-losers').getAttribute('aria-label')==='Losers' && document.querySelector('#bagelsList .bagel-icon').getAttribute('aria-hidden')==='true' && document.querySelector('#bagelsList .bagel-winners .bagel-team-label').textContent==='Winners' && document.querySelector('#bagelsList .bagel-losers .bagel-team-label').textContent==='Losers' && !document.querySelector('#bagelsList .bagel-face')`));
+    assert(await evaluate(`getComputedStyle(document.querySelector('#bagelsList .bagel-winners .bagel-team-label')).color!==getComputedStyle(document.querySelector('#bagelsList .bagel-losers .bagel-team-label')).color`));
+    console.log('Singles/doubles cards show bagel/date/score and clear Winners/Losers labels without small face icons');
     await cdp('Emulation.setTimezoneOverride',{timezoneId:'Pacific/Kiritimati'});
     await evaluate('window.EarlyBirdsStore.refresh().then(()=>true)');
     assert(await evaluate(`document.querySelector('#bagelsList time').dateTime==='2026-10-16' && document.querySelector('#bagelsList time').textContent==='Fri 16 Oct 2026'`));
     console.log('Bagel calendar dates stay correct in a device timezone far from London');
-    await evaluate(`(async()=>{window.failShared=true;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{window.failShared=true;document.getElementById('refreshButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.querySelectorAll('#bagelsList > .bagel-card').length===4 && !document.getElementById('staleNotice').hidden && document.getElementById('dataError').textContent!==''`));
-    await evaluate(`(async()=>{window.failShared=false;document.getElementById('refreshButton').click();await new Promise(r=>setTimeout(r,100));document.getElementById('signOutButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('refreshButton').click();await window.waitForSharedIdle();document.getElementById('signOutButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`!window.EarlyBirdsAuth.getSession() && !document.getElementById('bagelsPanel').hidden && document.querySelectorAll('#bagelsList > .bagel-card').length===4`));
     console.log('Failed refresh retains last good Bagels list; visitors can view all retained results after sign-out');
     await evaluate(`(async()=>{
@@ -773,7 +857,7 @@ async function main() {
     assert(await evaluate(`document.getElementById('adminPlayersList').children.length===0 && document.getElementById('addPlayerButton').hidden`));
     await evaluate(`(async()=>{
       document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';document.getElementById('profileAdmin').checked=true;
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,150));document.getElementById('adminTabButton').click();
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();document.getElementById('adminTabButton').click();
     })()`);
     assert(await evaluate(`window.EarlyBirdsAuth.getSession().isAdmin && document.getElementById('adminPlayersList').children.length===9 && !document.getElementById('addPlayerButton').hidden`));
     console.log('Initial active player can choose Admin and manage active/inactive users; visitors have no controls');
@@ -784,7 +868,7 @@ async function main() {
     const usersBefore=await evaluate('window.EarlyBirdsStore.getSnapshot().users.users.length');
     await evaluate(`(async()=>{
       document.getElementById('addPlayerButton').click();document.getElementById('playerName').value='  Test Player 鳥  ';
-      document.getElementById('playerForm').requestSubmit();document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('playerForm').requestSubmit();document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     const playerId=await evaluate(`window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.name==='Test Player 鳥').id`);
     assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().users.users.length'),usersBefore+1);
@@ -795,57 +879,57 @@ async function main() {
       state.bagels=[{id:'management-history',sourceCourtId:'management-court',date:'2026-10-15',winners:[{userId:${JSON.stringify(playerId)},name:'Test Player 鳥'}],losers:[{userId:'akiko',name:'Akiko historical'}],createdAt:'2026-10-15T10:00:00Z',createdBy:'mike-ertl'}];
       window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();
       document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="edit"]').click();document.getElementById('playerName').value='Renamed Player 鳥';
-      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts[0].bookedBy===${JSON.stringify(playerId)} && document.querySelector('#gamesList .game-booker').textContent==='Renamed Player 鳥' && document.getElementById('bagelsList').textContent.includes('Renamed Player 鳥') && !document.getElementById('bagelsList').textContent.includes('Test Player 鳥') && window.EarlyBirdsStore.getSnapshot().state.bagels[0].winners[0].name==='Test Player 鳥'`));
-    await evaluate(`(async()=>{document.getElementById('adminBagelsDetails').open=true;document.getElementById('manageBagelsButton').click();await new Promise(r=>setTimeout(r,100));document.getElementById('bagelSearch').value='Renamed Player';document.getElementById('bagelSearch').dispatchEvent(new Event('input'));})()`);
+    await evaluate(`(async()=>{document.getElementById('adminBagelsDetails').open=true;document.getElementById('manageBagelsButton').click();await window.waitForSharedIdle();document.getElementById('bagelSearch').value='Renamed Player';document.getElementById('bagelSearch').dispatchEvent(new Event('input'));})()`);
     assert(await evaluate(`document.querySelector('#bagelSearchResults button').textContent.includes('Renamed Player 鳥') && !document.querySelector('#bagelSearchResults button').textContent.includes('Test Player 鳥')`));
     await evaluate(`document.querySelector('#bagelSearchResults button').click()`);
     assert(await evaluate(`document.getElementById('bagelDeleteDescription').textContent.includes('Renamed Player 鳥')`));
     await evaluate(`document.getElementById('backToBagelsButton').click();document.getElementById('bagelSearch').value='';document.getElementById('closeManageBagelsButton').click()`);
     console.log('Rename updates booking, Bagels and Admin search/review immediately, preserving stable references and saved names');
     await evaluate(`(async()=>{
-      document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="toggle"]').click();document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="toggle"]').click();document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
       document.getElementById('adminAddCourtButton').click();
     })()`);
     assert(await evaluate(`!window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id===${JSON.stringify(playerId)}).active && ![...document.getElementById('profileUser').options].some(o=>o.value===${JSON.stringify(playerId)}) && ![...document.getElementById('courtBookerSelect').options].some(o=>o.value===${JSON.stringify(playerId)}) && window.EarlyBirdsStore.getSnapshot().state.courts[0].green.includes(${JSON.stringify(playerId)})`));
     console.log('Deactivation excludes new sign-in/booker choices while retaining existing participation');
     await evaluate(`(async()=>{
       document.getElementById('closeCourtButton').click();document.querySelector('#adminPlayersList [data-player-id="${playerId}"] [data-player-action="toggle"]').click();
-      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id===${JSON.stringify(playerId)}).active && [...document.getElementById('profileUser').options].some(o=>o.value===${JSON.stringify(playerId)})`));
     console.log('Reactivation restores eligibility under the same player ID');
     const playerWrites=await evaluate('window.mockWriteAttempts');
     await evaluate(`(async()=>{
-      document.getElementById('addPlayerButton').click();document.getElementById('playerName').value=' renamed player 鳥 ';document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('addPlayerButton').click();document.getElementById('playerName').value=' renamed player 鳥 ';document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`document.getElementById('playerError').textContent.includes('already used')`));
     assert.equal(await evaluate('window.mockWriteAttempts'),playerWrites);
     await evaluate(`(async()=>{
-      document.getElementById('playerName').value='Retry Player';window.denySave=true;document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('playerName').value='Retry Player';window.denySave=true;document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     const retryPlayerId=await evaluate('window.EarlyBirdsStore.getRecovery().action.user.id');
     await evaluate(`document.getElementById('closePlayerButton').click();document.getElementById('addPlayerButton').click()`);
     assert(await evaluate(`document.getElementById('playerName').value==='Retry Player' && document.getElementById('savePlayerButton').textContent==='Retry save'`));
-    await evaluate(`(async()=>{window.denySave=false;document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));})()`);
+    await evaluate(`(async()=>{window.denySave=false;document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().users.users.filter(u=>u.id===${JSON.stringify(retryPlayerId)}).length===1`));
     console.log('Duplicate names are rejected; failed creation keeps its draft and retries one stable ID');
     await evaluate(`(async()=>{
       document.querySelector('#adminPlayersList [data-player-id="${retryPlayerId}"] [data-player-action="edit"]').click();document.getElementById('playerName').value='Retry Player renamed';
-      window.loseAckOnce=true;document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      window.loseAckOnce=true;document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && document.getElementById('playerFields').disabled && !document.getElementById('savePlayerButton').disabled && document.getElementById('addPlayerButton').disabled`));
-    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`!document.getElementById('playerDialog').open && window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id===${JSON.stringify(retryPlayerId)}).name==='Retry Player renamed'`));
     console.log('Unknown directory acknowledgement locks inputs and global retry confirms the rename');
     await evaluate(`(async()=>{
       document.querySelector('#adminPlayersList [data-player-id="${retryPlayerId}"] [data-player-action="edit"]').click();document.getElementById('playerName').value='My draft';
       const users=JSON.parse(window.mockFiles['data/users.json']);users.users.find(u=>u.id===${JSON.stringify(retryPlayerId)}).name='Other Admin rename';window.mockFiles['data/users.json']=JSON.stringify(users);
-      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`document.getElementById('playerName').value==='My draft' && document.getElementById('playerError').textContent.includes('edited by someone else') && !document.getElementById('reloadPlayerButton').hidden`));
-    await evaluate(`(async()=>{document.getElementById('reloadPlayerButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.getElementById('reloadPlayerButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('playerName').value==='Other Admin rename' && document.getElementById('playerError').textContent===''`));
     for(const width of [320,390,768,1280]) {
       await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<540});
@@ -862,7 +946,7 @@ async function main() {
     })()`);
     assert(await evaluate(`document.getElementById('playerDescription').textContent.includes('sign you out')`));
     await evaluate(`(async()=>{
-      document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,200));
+      document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
       // Sign-out uses local preview files on localhost. Mirror the simulated
       // shared directory there so this check represents a published read too.
       window.fixtureUsers=JSON.parse(window.mockFiles['data/users.json']);window.fixtureState=JSON.parse(window.mockFiles['data/current.json']);
@@ -871,27 +955,27 @@ async function main() {
     assert(await evaluate(`!window.EarlyBirdsAuth.getSession() && document.getElementById('adminTabButton').hidden && document.getElementById('adminPlayersList').children.length===0 && ![...document.getElementById('profileUser').options].some(o=>o.value==='mike-ertl')`));
     await evaluate(`(async()=>{
       document.getElementById('signInButton').click();document.getElementById('profileUser').value='akiko';document.getElementById('profileAdmin').checked=true;
-      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,150));document.getElementById('adminTabButton').click();
-      document.querySelector('#adminPlayersList [data-player-id="mike-ertl"] [data-player-action="toggle"]').click();document.getElementById('playerForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+      document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();document.getElementById('adminTabButton').click();
+      document.querySelector('#adminPlayersList [data-player-id="mike-ertl"] [data-player-action="toggle"]').click();document.getElementById('playerForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsAuth.getSession().userId==='akiko' && window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id==='mike-ertl').active`));
     console.log('Self-deactivation signs out; another active player chooses Admin and reactivates the same account');
     await evaluate(`(async()=>{
-      document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`document.getElementById('adminPlayersList').children.length===0 && document.getElementById('addPlayerButton').hidden`));
     console.log('Leaving Admin clears all user-management controls');
     await evaluate(`(async()=>{
-      document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=true;document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=true;document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();
       const users=JSON.parse(window.mockFiles['data/users.json']);users.users.find(u=>u.id==='ellen').active=false;window.mockFiles['data/users.json']=JSON.stringify(users);
       const base={date:'2026-10-16',time:'08:00',durationMinutes:60,code:'012345',createdAt:'2026-10-16T06:00:00Z',createdBy:'mike-ertl'};
       const state={...window.EarlyBirdsStore.getSnapshot().state,courts:[{...base,id:'admin-a',courtNumber:1,bookedBy:'mike-ertl',green:['mike-ertl','ellen'],reserved:['arda']},{...base,id:'admin-b',courtNumber:2,bookedBy:'akiko',green:['akiko'],reserved:[]}],bagels:[{id:'admin-kept-history',sourceCourtId:'admin-a',date:'2026-10-16',winners:[{userId:'mike-ertl',name:'Mike recorded'}],losers:[{userId:'ellen',name:'Ellen recorded'}],createdAt:'2026-10-16T09:00:00Z',createdBy:'mike-ertl'}]};
       window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();document.getElementById('adminTabButton').click();
       window.adminCourt=id=>document.querySelector('#adminCourtsList [data-court-id="'+id+'"]');
       window.adminMember=(id,user,status)=>[...window.adminCourt(id).querySelectorAll('.admin-member [data-admin-participation]')].find(b=>b.dataset.userId===user && b.dataset.adminParticipation===status);
-      window.adminPlace=async(id,user,status)=>{const button=window.adminMember(id,user,status);if(!button || button.disabled)throw new Error('Expected enabled Admin membership action');button.click();await new Promise(r=>setTimeout(r,150));};
+      window.adminPlace=async(id,user,status)=>{const button=window.adminMember(id,user,status);if(!button || button.disabled)throw new Error('Expected enabled Admin membership action');button.click();await window.waitForSharedIdle();};
       window.adminPick=(id,user)=>{const select=window.adminCourt(id).querySelector('[data-admin-player-select]');select.value=user;select.dispatchEvent(new Event('change'));};
-      window.adminAdd=async(id,user,status)=>{window.adminPick(id,user);const button=window.adminCourt(id).querySelector('.admin-add-player [data-admin-participation="'+status+'"]');if(button.disabled)throw new Error('Expected enabled Admin add action');button.click();await new Promise(r=>setTimeout(r,150));};
+      window.adminAdd=async(id,user,status)=>{window.adminPick(id,user);const button=window.adminCourt(id).querySelector('.admin-add-player [data-admin-participation="'+status+'"]');if(button.disabled)throw new Error('Expected enabled Admin add action');button.click();await window.waitForSharedIdle();};
     })()`);
     assert(await evaluate(`!document.querySelector('#gamesList [data-admin-participation]') && window.adminCourt('admin-a').querySelectorAll('.admin-member').length===3 && window.adminMember('admin-a','ellen','reserved').disabled && !window.adminMember('admin-a','ellen','none').disabled && ![...window.adminCourt('admin-a').querySelector('select').options].some(o=>o.value==='ellen')`));
     console.log('Court-player controls live only in Admin; existing inactive members can be removed but not newly assigned');
@@ -917,12 +1001,12 @@ async function main() {
     console.log('Admin last-place SHA conflict preserves the competing join and keeps requested player reserved');
     await evaluate(`(async()=>{window.denySave=true;await window.adminPlace('admin-a','rob','none');})()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a').green.includes('rob') && window.adminCourt('admin-a').querySelector('.admin-participation-error').textContent.includes('denied')`));
-    await evaluate(`(async()=>{window.denySave=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,150));})()`);
+    await evaluate(`(async()=>{window.denySave=false;document.getElementById('retrySaveButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`!window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a').green.includes('rob') && window.adminCourt('admin-a').querySelector('.admin-participation-status').textContent.includes('removed')`));
     console.log('Rejected Admin assignment keeps membership unchanged and global retry updates Admin feedback');
     await evaluate(`(async()=>{window.loseAckOnce=true;await window.adminAdd('admin-a','dimitar','green');})()`);
     assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && [...document.querySelectorAll('[data-admin-participation],[data-admin-player-select]')].every(control=>control.disabled)`));
-    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='admin-a').green.filter(id=>id==='dimitar').length===1 && window.adminCourt('admin-a').querySelector('.admin-participation-status').textContent.includes('playing')`));
     console.log('Uncertain Admin assignment freezes controls and reconciles one membership');
     await evaluate(`(async()=>{
@@ -952,7 +1036,7 @@ async function main() {
       document.getElementById('adminBagelsDetails').open=false;
     })()`);
     assert(await evaluate(`!document.getElementById('adminBagelsDetails').open && document.getElementById('adminBagelCount').textContent==='65 recorded' && !document.querySelector('#bagelsList [data-delete-bagel-id]')`));
-    await evaluate(`(async()=>{document.querySelector('#adminBagelsDetails summary').click();document.getElementById('manageBagelsButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.querySelector('#adminBagelsDetails summary').click();document.getElementById('manageBagelsButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('manageBagelsDialog').open && document.querySelectorAll('[data-delete-bagel-id]').length===50 && document.getElementById('bagelSearchCount').textContent.includes('Refine')`));
     for(const width of [320,390,768,1280]) {
       await cdp('Emulation.setDeviceMetricsOverride',{width,height:800,deviceScaleFactor:1,mobile:width<540});
@@ -963,20 +1047,20 @@ async function main() {
     assert(await evaluate(`document.getElementById('bagelDeleteDescription').textContent.includes('2026-03-06') && !document.getElementById('bagelDeleteDescription').textContent.includes('Archive 64') && !document.getElementById('bagelDeleteReview').hidden`));
     await evaluate(`document.getElementById('closeManageBagelsButton').click()`);
     assert.equal(await evaluate('window.mockWriteAttempts'),beforeCancel);
-    await evaluate(`(async()=>{document.getElementById('manageBagelsButton').click();await new Promise(r=>setTimeout(r,100));window.denySave=true;document.getElementById('confirmBagelDeleteButton').click();await new Promise(r=>setTimeout(r,150));})()`);
+    await evaluate(`(async()=>{document.getElementById('manageBagelsButton').click();await window.waitForSharedIdle();window.denySave=true;document.getElementById('confirmBagelDeleteButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.length===65 && document.getElementById('bagelDeleteError').textContent.includes('denied') && document.getElementById('confirmBagelDeleteButton').textContent==='Retry deletion'`));
     await evaluate(`(async()=>{
       window.denySave=false;window.racingState=JSON.parse(window.mockFiles['data/current.json']);window.racingState.bagels.push({...window.racingState.bagels[0],id:'concurrent-set'});
-      document.getElementById('confirmBagelDeleteButton').click();await new Promise(r=>setTimeout(r,200));
+      document.getElementById('confirmBagelDeleteButton').click();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`(()=>{const s=window.EarlyBirdsStore.getSnapshot().state;return s.bagels.length===65 && !s.bagels.some(b=>b.id==='archive-64') && s.bagels.some(b=>b.id==='concurrent-set') && s.courts.length===2 && document.getElementById('bagelDeleteStatus').textContent.includes('deleted') && !document.querySelector('#bagelsList [data-bagel-id="archive-64"]');})()`));
     console.log('Collapsed Admin Bagels opens bounded searchable popup, cancels safely and confirms deletion; failed retry preserves concurrent sets and courts');
     await evaluate(`(async()=>{
       document.getElementById('backToBagelsButton').click();document.getElementById('bagelSearch').value='2026-03-05';document.getElementById('bagelSearch').dispatchEvent(new Event('input'));document.querySelector('[data-delete-bagel-id="archive-63"]').click();
-      window.loseAckOnce=true;document.getElementById('confirmBagelDeleteButton').click();await new Promise(r=>setTimeout(r,200));
+      window.loseAckOnce=true;document.getElementById('confirmBagelDeleteButton').click();await window.waitForSharedIdle();
     })()`);
     assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && document.getElementById('backToBagelsButton').disabled && !document.getElementById('closeManageBagelsButton').disabled`));
-    await evaluate(`(async()=>{document.getElementById('closeManageBagelsButton').click();document.getElementById('manageBagelsButton').click();window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,200));})()`);
+    await evaluate(`(async()=>{document.getElementById('closeManageBagelsButton').click();document.getElementById('manageBagelsButton').click();window.failShared=false;document.getElementById('retrySaveButton').click();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`document.getElementById('bagelDeleteStatus').textContent.includes('deleted') && !window.EarlyBirdsStore.getSnapshot().state.bagels.some(b=>b.id==='archive-63')`));
     await evaluate(`document.getElementById('backToBagelsButton').click();document.getElementById('bagelSearch').value='no-such-player';document.getElementById('bagelSearch').dispatchEvent(new Event('input'))`);
     assert(await evaluate(`document.getElementById('bagelSearchCount').textContent==='0 matching bagels'`));
@@ -984,12 +1068,13 @@ async function main() {
     assert(await evaluate(`!document.getElementById('adminBagelsDetails').open`));
     console.log('Uncertain deletion retains selection across close/reopen, global retry reconciles and search handles no matches; layouts keep Close visible');
     await evaluate(`document.getElementById('adminBagelsDetails').open=true;document.getElementById('manageBagelsButton').click()`);
-    await evaluate(`(async()=>{document.getElementById('manageBagelsDialog').close();document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));})()`);
+    await evaluate(`(async()=>{document.getElementById('manageBagelsDialog').close();document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();})()`);
     assert(await evaluate(`!document.querySelector('[data-admin-participation]') && document.getElementById('adminTabButton').hidden`));
     console.log('Court-player controls fit phone/desktop layouts and disappear when Admin mode ends');
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');
   } finally {
+    clearInterval(keepAlive);
     if (ws) ws.close();
     if (chrome.exitCode === null && !launchError) {
       chrome.kill('SIGTERM');

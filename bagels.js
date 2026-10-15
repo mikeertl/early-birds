@@ -257,9 +257,6 @@
       if (text !== undefined) value.textContent = text;
       return value;
     }
-    function icon(text, className) {
-      var value = node("span", className, text); value.setAttribute("aria-hidden", "true"); return value;
-    }
     function renderList(data) {
       var list = document.getElementById("bagelsList");
       var entries = data.state.bagels.slice().sort(function (a, b) {
@@ -283,11 +280,11 @@
         artwork.setAttribute("aria-hidden", "true");
         header.append(artwork, details);
         var teams = node("div", "bagel-teams");
-        [["Winners", "🙂", bagel.winners, "bagel-winners"], ["Losers", "🙁", bagel.losers, "bagel-losers"]].forEach(function (team) {
-          var group = node("section", "bagel-team-result " + team[3]); group.setAttribute("aria-label", team[0]);
-          var label = node("h4", "bagel-team-label"); label.append(icon(team[1], "bagel-face"), document.createTextNode(" " + team[0]));
+        [["Winners", bagel.winners, "bagel-winners"], ["Losers", bagel.losers, "bagel-losers"]].forEach(function (team) {
+          var group = node("section", "bagel-team-result " + team[2]); group.setAttribute("aria-label", team[0]);
+          var label = node("h4", "bagel-team-label", team[0]);
           var players = node("ul", "player-list");
-          team[2].forEach(function (player) { players.appendChild(node("li", "player-chip", playerName(player, data))); });
+          team[1].forEach(function (player) { players.appendChild(node("li", "player-chip", playerName(player, data))); });
           group.append(label, players); teams.appendChild(group);
         });
         card.append(header, teams); list.appendChild(card);

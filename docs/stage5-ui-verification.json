@@ -1,0 +1,74 @@
+{
+  "tasks": [
+    "5.1.1",
+    "5.2"
+  ],
+  "result": "passed",
+  "finishedAt": "2026-10-15T16:13:58.402Z",
+  "browser": "Headless Chrome; desktop and phone viewport emulation, not a physical Safari/iOS run",
+  "viewportWidths": [
+    320,
+    390,
+    768,
+    1280
+  ],
+  "checks": [
+    "Green hamburger on white, 3px strokes and 44px touch target",
+    "Keyboard Enter/Tab/Escape for account menu and sign-in dialog; dialog Tab wrap and focus return",
+    "Keyboard arrow navigation across tabs and visible focus outline",
+    "Form labels and narrow booking, reporting and Admin controls",
+    "Remember last successful active player ID across sign-out and reload without restoring access/Admin mode",
+    "Remembered name survives token removal and rename; inactive remembered players are not selected",
+    "Floating success notice expiry, persistent errors/retries and no layout displacement",
+    "Animated refresh/save progress with reduced-motion support",
+    "Wooden honours board with gold names, distinct textual winner/loser labels, looping artwork and pause/resume",
+    "Booking/participation, singles/doubles bagels, user/court/player/bagel Admin correction, cleanup and save recovery"
+  ],
+  "modelStore": {
+    "result": "passed",
+    "tests": 46
+  },
+  "crossSession": {
+    "result": "passed",
+    "checks": 14,
+    "runner": "tests/stage4.browser.cjs"
+  },
+  "browserRunner": "tests/auth.browser.cjs",
+  "screenshotsInspected": [
+    "early-birds-header-52.png",
+    "early-birds-games-52.png",
+    "early-birds-bagels-52.png",
+    "early-birds-admin-52.png"
+  ],
+  "contrastRatios": {
+    "hamburgerOnWhite": 7.77,
+    "bodyOnWhite": 14.76,
+    "mutedOnPage": 5,
+    "winnersOnGreen": 7.79,
+    "losersOnRed": 7.28,
+    "reserveOnYellow": 7.51
+  },
+  "pending": [],
+  "productionDataChanged": false,
+  "pushed": false,
+  "gifFollowUp": {
+    "result": "passed",
+    "finishedAt": "2026-10-15T16:26:45.399Z",
+    "source": "User-supplied assets/bagel.gif; untouched original retained as assets/bagel-original.gif",
+    "frames": 20,
+    "frameDurationSeconds": 0.1,
+    "loopDurationSeconds": 2,
+    "loopCount": 0,
+    "correction": "Removed held source frames 15 and 16 without re-encoding the remaining frames; native infinite loop retained",
+    "checks": [
+      "Every corrected frame decoded successfully in Chrome",
+      "Original GIF shown in honours-board heading",
+      "Pause swaps to extracted still frame; Resume restarts GIF",
+      "Reduced motion uses still frame and hides animation control",
+      "Visible wood grain/knots, gold lettering and Winners/Losers labels without small faces",
+      "Complete browser regression suite passed at 320/390/768/1280px",
+      "Phone honours-board screenshot inspected"
+    ],
+    "productionDataChanged": false
+  }
+}

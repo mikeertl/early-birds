@@ -56,9 +56,12 @@ or restoring the session. Public Games and Bagels remain available without it.
 My profile lets you change player/Admin mode or replace the token; leaving the
 token field blank keeps the current one. Stored tokens are never prefilled into
 the form. Sign-out removes the saved identity/Admin mode and remasks codes, but
-keeps the token for next time. To sign back in, choose your name and leave the
-token field blank. Use **Forget saved token** in the sign-in/profile form to sign
-out and remove the token. A signed-out reload keeps the token without restoring
+keeps the token and last successful player choice for next time. Sign-in
+preselects that active player by stable ID, including after a rename or page
+reload; you can choose another name. Inactive/missing players are not preselected.
+This separate preference grants no access, and Admin starts unchecked after
+sign-out. Leave the token field blank to reuse it. Use **Forget saved token** in the sign-in/profile form to sign
+out and remove the token, while keeping the remembered name. A signed-out reload keeps the token without restoring
 a player session; it is checked with GitHub again when you next sign in.
 
 Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
@@ -233,7 +236,52 @@ the popup can still be closed and reopened. Concurrent additions are retained,
 and retrying an already-deleted set does not delete anything else. Session changes
 close the popup and clear its selection.
 
-The branding bird was confirmed as a **mistle thrush**; artwork remains task 5.1.
+The branding bird is a **mistle thrush**. The original SVG mark pairs its spotted
+pale breast and grey-brown plumage with a green tennis racquet. Sources are
+`assets/early-birds.svg` and `assets/bagel.svg`; result cards use the bagel artwork.
+The page title, SVG/ICO favicon, Apple touch icon and manifest share Early Birds
+identity. Manifest scope/start/identity paths remain relative to this app.
+
+The compact header keeps the logo/title beside a hamburger on phones. Open it
+for the player name, **Refresh**, **My profile**, **Sign out**, or visitor
+**Sign in**. Escape, clicking outside or choosing an action closes the dropdown.
+Refreshing/saving shows an animated bar below the header, with reduced-motion
+support. Success notices float above the page and disappear after 3.5 seconds;
+they do not shift the tabs or courts. Errors, stale-data warnings, deferred/failed
+cleanup and retry controls remain visible until resolved.
+
+To regenerate the raster icons from the SVG, start `./go.sh 8001`, then run with
+Node.js 22+ and Chrome installed:
+
+```sh
+TEST_URL=http://127.0.0.1:8001/ node scripts/generate-icons.cjs
+```
+
+The optional maskable variant produced by this script is not currently included
+in the manifest. The shipped 192/512px PNGs and 180px Apple icon are present and
+their dimensions have been checked. Browser layout/menu/timer regressions are in
+`tests/auth.browser.cjs`, including native keyboard input, dialog Tab wrapping,
+focus return, hamburger contrast, reduced motion and remembered-name behaviour.
+
+Bagels uses a wooden honours board with brass/gold lettering, visible grain/knots
+and current player names. Winners/Losers text and contrasting team accents
+distinguish the teams; small smiley/sad faces have been removed.
+The heading uses the supplied `assets/bagel.gif`, repeating indefinitely. Pause
+switches to `assets/bagel-still.png`, extracted from the original; Resume restarts
+the GIF. Reduced motion automatically uses the still and hides the motion control.
+The original GIF had two repeated/near-identical held frames per cycle. Those are
+removed in the displayed copy, retaining 20 moving frames at 0.1 seconds each.
+The untouched source is `assets/bagel-original.gif`; run
+`node scripts/smooth-bagel.cjs` to reproduce the timing-only correction. The wood
+texture is `assets/wood-grain.svg`.
+
+Tasks 5.1.1/5.2 passed on 2026-10-15: the full Chrome suite, 46 model/store tests
+and 14 independent-session checks passed. Phone viewport screenshots were
+inspected, including the new board. See
+[the UI verification record](docs/stage5-ui-verification.json) for coverage,
+physical-device scope and the completed original-GIF follow-up. The corrected GIF,
+pause/reduced motion, wood grain and text-only team labels subsequently passed the
+full browser suite, including phone/desktop layouts; the phone board was inspected.
 
 ## Court expiry and cleanup
 

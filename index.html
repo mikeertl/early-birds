@@ -32,16 +32,23 @@
             <h1 id="app-title">Early Birds Tennis</h1>
           </div>
         </div>
-        <div class="session-actions">
+        <div class="menu-shell">
+          <button id="menuButton" class="button menu-button" type="button" aria-label="Open account menu" aria-expanded="false" aria-controls="userMenu">
+            <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+          </button>
+          <div id="userMenu" class="user-menu" hidden>
           <p id="sessionSummary" class="session-summary">Visitor</p>
           <button id="refreshButton" class="button secondary" type="button">Refresh</button>
           <button id="signInButton" class="button" type="button">Sign in</button>
           <button id="profileButton" class="button secondary" type="button" hidden>My profile</button>
           <button id="signOutButton" class="button secondary" type="button" hidden>Sign out</button>
+          </div>
         </div>
+        <div id="refreshProgress" class="refresh-progress" role="progressbar" aria-label="Refreshing shared data" hidden><span></span></div>
       </header>
 
       <main>
+        <div id="appNotices" class="app-notices">
         <p id="authStatus" class="status-line" role="status" aria-atomic="true"></p>
         <p id="authError" class="error-line" role="alert" aria-atomic="true"></p>
         <p id="dataStatus" class="status-line" role="status" aria-atomic="true"></p>
@@ -51,6 +58,7 @@
         <p id="cleanupNotice" class="status-line" role="status" aria-atomic="true"></p>
         <p id="staleNotice" class="field-help" hidden>Showing the last successfully loaded data. Refresh to check for updates.</p>
         <button id="retrySaveButton" class="button secondary" type="button" hidden>Retry last change</button>
+        </div>
         <nav class="section-navigation" aria-label="Main sections">
           <div class="tab-nav" role="tablist" aria-label="Tennis">
             <button id="gamesTabButton" class="tab-button" type="button" role="tab"
@@ -114,12 +122,16 @@
           <p class="error-line" data-panel-error role="alert" aria-atomic="true"></p>
         </section>
 
-        <section id="bagelsPanel" class="panel tab-panel" role="tabpanel"
+        <section id="bagelsPanel" class="panel tab-panel bagel-board" role="tabpanel"
           aria-labelledby="bagelsTabButton" tabindex="0" data-panel="bagels" aria-busy="false" hidden>
-          <div class="section-heading">
-            <p class="section-eyebrow">Six games. Love.</p>
-            <h2>Bagels</h2>
-            <p>Our 6–0 sets, with the latest first.</p>
+          <div class="section-heading bagel-board-heading">
+            <div class="bagel-board-animation" aria-hidden="true"><img id="bagelAnimation" src="assets/bagel-still.png" width="640" height="640" alt="" /></div>
+            <div>
+              <p class="bagel-board-eyebrow">Early Birds Tennis · Honours board</p>
+              <h2>Bagels</h2>
+              <p class="bagel-board-caption">Six games. Love. Recorded for posterity.</p>
+              <button id="bagelAnimationButton" class="bagel-animation-toggle" type="button" aria-pressed="false">Pause animation</button>
+            </div>
           </div>
           <div class="panel-state" data-state-box>
             <p class="state-title" data-state-title>No bagels to show yet</p>

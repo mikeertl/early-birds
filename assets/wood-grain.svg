@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600" viewBox="0 0 1000 600">
+  <defs>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.006 0.18" numOctaves="3" seed="12" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 .85  0 0 0 0 .55  0 0 0 0 .28  .6 .3 .1 0 -.35"/>
+    </filter>
+  </defs>
+  <rect width="1000" height="600" filter="url(#grain)" opacity=".38"/>
+  <g fill="none" stroke="#120905" stroke-opacity=".25" stroke-width="2">
+    <path d="M-20 28C200 8 330 55 540 31S800 8 1020 28M-20 81C180 110 360 57 570 83S810 110 1020 81M-20 143C220 111 350 170 580 140S840 118 1020 143"/>
+    <path d="M-20 200C250 230 340 164 535 201S790 227 1020 200M-20 252C180 220 360 227 492 248S635 340 770 277 900 270 1020 252"/>
+    <path d="M-20 322C210 292 340 330 484 301S645 226 786 306 915 344 1020 322M-20 374C220 352 400 393 575 370S830 350 1020 374M-20 452C230 421 380 474 595 448S830 422 1020 452M-20 533C220 560 400 512 600 540S850 560 1020 533"/>
+    <ellipse cx="596" cy="276" rx="84" ry="34"/><ellipse cx="596" cy="276" rx="59" ry="22"/><ellipse cx="596" cy="276" rx="34" ry="12"/>
+  </g>
+  <g fill="none" stroke="#d6a464" stroke-opacity=".12" stroke-width="1">
+    <path d="M-20 39C200 20 330 67 540 43S800 20 1020 39M-20 94C180 122 360 69 570 96S810 121 1020 94M-20 155C220 123 350 182 580 152S840 130 1020 155M-20 213C250 242 340 176 535 213S790 239 1020 213M-20 391C220 367 400 407 575 385S830 365 1020 391M-20 468C230 438 380 491 595 465S830 440 1020 468M-20 548C220 575 400 527 600 555S850 575 1020 548"/>
+    <ellipse cx="596" cy="276" rx="99" ry="42"/><ellipse cx="596" cy="276" rx="46" ry="17"/>
+  </g>
+</svg>

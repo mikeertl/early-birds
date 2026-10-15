@@ -3,7 +3,7 @@
   --bg: #f4f1ea;
   --surface: #ffffff;
   --text: #1f2933;
-  --muted: #62717f;
+  --muted: #5b6976;
   --line: #d7ded7;
   --green: #20744a;
   --green-soft: #dff3e7;
@@ -77,11 +77,12 @@ textarea {
 }
 
 .topbar {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  padding: 12px 0 28px;
+  padding: 4px 0 12px;
 }
 
 .brand-eyebrow,
@@ -95,14 +96,31 @@ textarea {
 }
 
 .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.brand-mark { width: 80px; height: 80px; flex: 0 0 auto; }
+.brand-mark { width: 64px; height: 64px; flex: 0 0 auto; }
 .brand-wordmark { min-width: 0; }
 
 @media (max-width: 540px) {
   .brand { gap: 10px; }
-  .brand-mark { width: 60px; height: 60px; }
-  .brand-eyebrow { font-size: 10px; }
+  .brand-mark { width: 48px; height: 48px; }
+  .brand-eyebrow { display: none; }
+  .brand h1 { font-size: 18px; line-height: 1.2; }
 }
+
+.menu-shell { position: relative; flex: 0 0 auto; z-index: 20; }
+.button.menu-button { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 44px; height: 44px; padding: 10px; background: var(--surface); color: #1f5d42; border-color: var(--line); }
+.button.menu-button:hover { background: var(--green-soft); }
+.menu-button span { display: block; height: 3px; width: 22px; background: currentColor; border-radius: 2px; }
+.user-menu { position: absolute; top: calc(100% + 8px); right: 0; width: min(240px, calc(100vw - 24px)); display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
+.user-menu .button { width: 100%; text-align: left; }
+.user-menu .session-summary { margin: 0; padding: 4px; border: 0; border-radius: 0; overflow-wrap: anywhere; }
+.refresh-progress { position: absolute; bottom: 3px; left: 0; right: 0; height: 3px; overflow: hidden; border-radius: 3px; background: var(--green-soft); }
+.refresh-progress span { display: block; width: 40%; height: 100%; background: var(--green); animation: refresh-progress 1s ease-in-out infinite; }
+@keyframes refresh-progress { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
+@media (prefers-reduced-motion: reduce) { .refresh-progress span { animation: none; width: 100%; } }
+
+.app-notices { position: fixed; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: min(380px, calc(100% - 24px)); z-index: 30; display: grid; gap: 8px; max-height: 45dvh; overflow-y: auto; pointer-events: none; }
+.app-notices > p, .app-notices > button { margin: 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow-wrap: anywhere; pointer-events: auto; }
+.app-notices > p:empty { display: none; }
 
 .session-summary {
   flex-shrink: 0;
@@ -225,6 +243,43 @@ h2 {
 .bagel-team-label { margin: 0 0 8px; font-size: 14px; }
 .bagel-winners .player-chip { color: #185334; background: var(--green-soft); }
 .bagel-losers .player-chip { color: #852b2b; background: #fbe4e4; }
+
+.panel.bagel-board {
+  --board-gold: #f2d58a;
+  color: var(--board-gold);
+  border: 6px double #b89351;
+  background-color: #352017;
+  background-image: url("assets/wood-grain.svg"), linear-gradient(100deg, #2d1c16, #4b2d1e 35%, #352017 75%, #43281c);
+  background-size: 900px 540px, cover;
+  background-position: center top, center;
+  box-shadow: inset 0 0 24px #120a07a6, 0 12px 28px #27333926;
+}
+.bagel-board-heading { display: flex; align-items: center; gap: 20px; padding-bottom: 24px; margin-bottom: 8px; border-bottom: 1px solid #b8935180; }
+.bagel-board h2 { color: var(--board-gold); font-family: Georgia, "Times New Roman", serif; font-size: clamp(32px, 5vw, 44px); font-weight: 400; letter-spacing: 0.04em; margin: 2px 0 6px; }
+.bagel-board-eyebrow { margin: 0; color: #e1bf78; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.bagel-board-caption { margin: 0; color: #ead8b2; font-size: 14px; }
+.bagel-board-animation { flex: 0 0 112px; width: 112px; aspect-ratio: 1; overflow: hidden; border: 1px solid #b8935180; border-radius: 8px; background: #160d08; }
+.bagel-board-animation img { display: block; width: 100%; height: auto; }
+.bagel-animation-toggle { display: block; min-height: 44px; padding: 6px 0; border: 0; background: transparent; color: #ead8b2; font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.bagel-board .bagel-card { color: var(--board-gold); background: #160d0833; border: 0; border-bottom: 1px solid #b8935166; border-radius: 0; padding: 24px 4px; }
+.bagel-board .bagel-card:last-child { border-bottom: 0; }
+.bagel-board .bagel-date { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: 0.02em; }
+.bagel-board .bagel-score { color: #ead8b2; }
+.bagel-board .bagel-team-label { color: #c1e5c7; }
+.bagel-board .bagel-losers .bagel-team-label { color: #ffc5b4; }
+.bagel-board .player-chip { color: var(--board-gold); background: transparent; padding: 0; border-radius: 0; font-family: Georgia, "Times New Roman", serif; font-size: 18px; }
+.bagel-board .bagel-team-result { border-left: 2px solid #88b694; padding-left: 12px; }
+.bagel-board .bagel-losers { border-left-color: #ce9585; }
+.bagel-board .panel-state { color: var(--board-gold); background: #160d0833; border-color: #b8935180; }
+.bagel-board :focus-visible { outline-color: var(--board-gold); }
+@media (max-width: 540px) {
+  .bagel-board-heading { gap: 12px; padding-bottom: 18px; }
+  .bagel-board-animation { flex-basis: 96px; width: 96px; }
+  .bagel-board-caption { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bagel-animation-toggle { display: none; }
+}
 
 .game-card {
   display: grid;
@@ -551,19 +606,10 @@ select {
   border-radius: 4px;
 }
 
-#authStatus:not(:empty),
-#authError:not(:empty),
-#dataStatus:not(:empty),
-#dataError:not(:empty),
-#saveStatus:not(:empty),
-#saveError:not(:empty) {
-  margin-bottom: 16px;
-}
-
 @media (max-width: 540px) {
   .topbar {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
     gap: 8px;
     padding-bottom: 16px;
   }
