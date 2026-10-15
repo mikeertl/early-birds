@@ -487,6 +487,33 @@ court editing/deletion and responsive layouts. See
 isolated simulated shared data. The earlier real GitHub verification is recorded
 below; live GitHub was not rerun for 3.7. Production data was unchanged.
 
+## Stage 4 acceptance (task 4.7)
+
+Run the independent-session bagel/Admin walkthrough with Node.js 22+ and Chrome:
+
+```sh
+node tests/stage4.browser.cjs
+```
+
+The runner starts its own temporary server and in-memory GitHub Contents
+simulator, blocking external requests. It uses synthetic credentials and isolated
+data, then closes its browser profiles and server. `CHROME_BIN` selects Chrome;
+`STAGE4_RESULT_PATH` optionally saves a JSON report. A controlled clock covers game
+end and the following London day without waiting for real time to pass.
+
+Task 4.7 passed on 2026-10-15: 14 new checks across independent Admin, player and
+visitor contexts covered booking/assignment, doubles, separate carried-on singles
+sets, historical entry, rejected reporting/deletion and retry, cross-session
+refresh, rename/deactivation, cleanup and persistent public history. All 46
+model/store tests, the full browser regression suite and all 17 Stage 3
+independent-session checks also passed. Those suites cover invalid teams,
+two-player singles, exact eligibility boundaries, ordering, unknown saves,
+concurrent changes and responsive Admin controls. The test assertions now follow
+the current directory name, and the browser helper accepts inactive players.
+See [the recorded Stage 4 result](docs/stage4-verification.json). No application
+code, production data, live GitHub, push or deployment was involved. Stage 4 is
+complete; branding in task 5.1 is next.
+
 ## Live foundation verification (task 2.6)
 
 Use a dedicated repository such as `mikeertl/early-birds-test` and a token granting

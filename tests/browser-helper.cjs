@@ -65,7 +65,7 @@ async function launchBrowser(options) {
       `},sessionId);
       await cdp('Page.navigate',{url:options.url},sessionId);
       for(let n=0;n<100;n++) {
-        if(await evaluate('Boolean(window.EarlyBirdsAuth && document.getElementById("profileUser").options.length===10)')) return {evaluate};
+        if(await evaluate('Boolean(window.EarlyBirdsAuth && window.EarlyBirdsStore && window.EarlyBirdsStore.getSnapshot() && document.getElementById("profileUser").options.length===window.EarlyBirdsStore.getSnapshot().users.users.filter(user=>user.active).length+1)')) return {evaluate};
         await new Promise(resolve=>setTimeout(resolve,100));
       }
       throw new Error('The test app did not load the player directory.');

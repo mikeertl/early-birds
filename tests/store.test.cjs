@@ -546,7 +546,7 @@ test('Admin directory creation enforces names and roles and reconciles one stabl
   assert.equal(remote.puts,1);assert.equal(remote.documents['data/users.json'].users.filter(u=>u.id==='player-opaque').length,1);
   await admin.mutate({type:'user.patch',userId:'player-opaque',expected:{active:true},changes:{active:false}});
   await assert.rejects(admin.mutate({...action,user:{...action.user,id:'another-id'}}),/already used/);
-  await assert.rejects(admin.mutate({type:'user.patch',userId:'player-opaque',expected:{name:action.user.name},changes:{name:'Mike Ertl'}}),/already used/);
+  await assert.rejects(admin.mutate({type:'user.patch',userId:'player-opaque',expected:{name:action.user.name},changes:{name:seedUsers.users.find(u=>u.id==='mike-ertl').name}}),/already used/);
   await assert.rejects(admin.mutate({type:'user.remove',userId:'player-opaque'}),/Unknown/);
 });
 test('Concurrent rename/deactivation preserves references and snapshots; same-field conflict requires review', async () => {

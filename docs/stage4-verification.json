@@ -1,0 +1,65 @@
+{
+  "task": "4.7",
+  "result": "passed",
+  "transport": "Local in-memory GitHub Contents simulator; synthetic credentials; no external requests or live writes",
+  "checks": [
+    "Two independent sessions retain ordinary-player and Admin access",
+    "Admin creates today’s missed court and assigns four players using court controls",
+    "Ordinary player cannot report before the one-hour game ends",
+    "Rejected doubles submission retains the original choices without publishing a result",
+    "Confirmed doubles persists and appears in the other browser after refresh",
+    "Two explicit carried-on singles sets can follow doubles with separate durable IDs",
+    "Admin records a historical singles result without an existing court",
+    "Rename propagates to the other session while deactivation and saved historical names preserve results",
+    "Next-day cleanup removes the court and ordinary reporting actions while retaining all four results",
+    "Cancelling Admin deletion leaves every result intact",
+    "Rejected Admin deletion remains unchanged in the other session",
+    "Retried confirmed deletion removes exactly one set and converges across browsers",
+    "A new visitor session sees persistent history without Admin controls",
+    "Independent identities remain correct with no uncaught browser errors"
+  ],
+  "writeAttempts": 14,
+  "finishedAt": "2026-10-15T13:25:50.697Z",
+  "productionDataChanged": false,
+  "modelStore": {
+    "result": "passed",
+    "tests": 46,
+    "command": "node --test tests/store.test.cjs",
+    "coverage": [
+      "Exact game-end and London-midnight eligibility, both DST boundaries",
+      "Fresh membership and late ordinary-player rejection",
+      "Two-player singles and singles after doubles",
+      "Unequal teams, repeated players and ineligible participants rejected",
+      "Independent sets and stable-ID duplicate/retry reconciliation",
+      "Historical Admin singles/doubles without a court, including inactive players",
+      "Admin deletion permissions, SHA conflict and lost acknowledgement",
+      "Court cleanup and directory changes preserve bagel records"
+    ]
+  },
+  "browserRegression": {
+    "result": "passed",
+    "command": "TEST_URL=http://127.0.0.1:8001/ node tests/auth.browser.cjs",
+    "coverage": [
+      "Ordinary and Admin entry forms, singles/doubles, repeated sets and recorded-set review",
+      "Newest-first ordering and tie-breaking",
+      "Current-name rendering, inactive players, saved-name preservation and literal markup",
+      "Admin user/court/player/bagel management and role changes",
+      "Failed/uncertain saves and retained form/global retries",
+      "Collapsed Players/Bagels and bounded searchable deletion popup",
+      "Phone/desktop layouts at 320, 390, 768 and 1280 pixels",
+      "Open-page time gates and next-day cleanup"
+    ]
+  },
+  "participationRegression": {
+    "result": "passed",
+    "checks": 17,
+    "command": "node tests/stage3.browser.cjs"
+  },
+  "multiSessionCommand": "node tests/stage4.browser.cjs",
+  "priorLiveGitHubEvidence": "foundation-verification.json (task 2.6); live GitHub was not rerun for 4.7",
+  "notes": [
+    "Test assertions now read the current player name rather than hard-coding Mike Ertl.",
+    "The browser helper waits for the actual active-player count, allowing a new visitor after deactivation.",
+    "No application code or production data changed for this acceptance task."
+  ]
+}

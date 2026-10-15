@@ -154,7 +154,7 @@ async function main() {
       check(cards.length===3 && cards.map(c=>c.dataset.courtId).join(',')==='simultaneous-a,simultaneous-b,later', 'cards sort by date/time/court and keep simultaneous courts separate');
       check(cards[0].querySelector('.game-date').textContent==='Wed 14 Oct 2099' && cards[0].querySelector('time').dateTime==='2099-10-14', 'exact calendar date format and semantic date');
       check(cards[0].querySelector('.game-time').textContent==='8:00am' && cards[2].querySelector('.game-time').textContent==='1:00pm', '12-hour morning and afternoon time formats');
-      check(cards[0].querySelector('.game-court').textContent==='Court 1' && cards[0].querySelector('.game-booker').textContent==='Mike Ertl', 'court and booker shown');
+      check(cards[0].querySelector('.game-court').textContent==='Court 1' && cards[0].querySelector('.game-booker').textContent===window.fixtureUsers.users.find(u=>u.id==='mike-ertl').name, 'court and booker shown');
       check(cards[0].querySelectorAll('.playing-player').length===2 && cards[0].querySelectorAll('.reserved-player').length===1 && cards[0].textContent.includes('Playing · 2 / 4') && cards[0].textContent.includes('Reserved · 1'), 'playing and reserve names have text-labelled groups');
       check(cards[2].textContent.includes('Nobody has joined yet.'), 'empty player list explained');
       check(cards[0].textContent.includes(literalName) && !cards[0].querySelector('img') && !window.nameInjected, 'inactive player names remain readable and markup is literal text');
@@ -243,7 +243,7 @@ async function main() {
       window.mockFiles['data/current.json']=JSON.stringify({...window.EarlyBirdsStore.getSnapshot().state,courts:gameFixtures()});await window.EarlyBirdsStore.refresh();
       check(management('simultaneous-a','edit') && management('simultaneous-a','delete') && !management('simultaneous-b','edit') && !management('later','delete'), 'ordinary booker sees management only for own court');
       management('simultaneous-a','edit').click();
-      check(el('courtDialog').open && el('courtTitle').textContent==='Edit court' && el('courtDate').value==='2099-10-14' && el('courtCode').value==='012345' && el('courtBookerSelect').hidden && el('courtBooker').value==='Mike Ertl', 'edit prefills booking and keeps ordinary booker readonly');
+      check(el('courtDialog').open && el('courtTitle').textContent==='Edit court' && el('courtDate').value==='2099-10-14' && el('courtCode').value==='012345' && el('courtBookerSelect').hidden && el('courtBooker').value===window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id==='mike-ertl').name, 'edit prefills booking and keeps ordinary booker readonly');
       const editedPlayers=JSON.stringify([membership('simultaneous-a').green,membership('simultaneous-a').reserved]);
       el('courtCode').focus();el('courtCode').value='*001234';el('courtCode').dispatchEvent(new Event('input',{bubbles:true}));const editBefore=window.mockWriteAttempts;el('courtForm').requestSubmit();el('courtForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
       check(!el('courtDialog').open && window.mockWriteAttempts===editBefore+1 && membership('simultaneous-a').code==='001234' && JSON.stringify([membership('simultaneous-a').green,membership('simultaneous-a').reserved])===editedPlayers, 'double edit saves once, normalises code and preserves membership');
@@ -308,7 +308,7 @@ async function main() {
       check(el('staleNotice').hidden, 'successful refresh clears stale notice');
       window.allowWrites = true;
       el('addCourtButton').click();
-      check(el('courtDialog').open && el('courtBooker').value==='Mike Ertl' && el('courtBooker').readOnly, 'Add Court prefills signed-in booker');
+      check(el('courtDialog').open && el('courtBooker').value===window.EarlyBirdsStore.getSnapshot().users.users.find(u=>u.id==='mike-ertl').name && el('courtBooker').readOnly, 'Add Court prefills signed-in booker');
       check(el('courtTime').value==='08:00' && el('courtDate').value==='' && el('courtNumber').value==='' && el('courtCode').value==='', 'booking defaults time only; other details required');
       check(el('courtTime').options[0].value==='07:00' && el('courtTime').options[14].value==='21:00' && el('courtNumber').options.length===7, 'agreed hourly times and six courts');
       el('nextWeekButton').click();
