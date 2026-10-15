@@ -1,10 +1,17 @@
 {
   "name": "Early Birds Tennis",
   "short_name": "Early Birds",
+  "id": "./",
+  "lang": "en-GB",
   "description": "Tennis court bookings and bagels.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f4f1ea",
-  "theme_color": "#1f5d42"
+  "theme_color": "#1f5d42",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }

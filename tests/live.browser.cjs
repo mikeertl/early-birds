@@ -139,6 +139,10 @@ const server=http.createServer(async(request,response)=>{
     if(request.url.startsWith('/app/') && runConfig) {
       const file=request.url.slice(5)||'index.html';
       if(file===runConfig.usersPath || file===runConfig.statePath){response.setHeader('Content-Type','application/json');response.end(JSON.stringify(file===runConfig.usersPath?runConfig.users:runConfig.state));return;}
+      if(["assets/early-birds.svg","assets/bagel.svg","assets/favicon.ico","assets/favicon.png","assets/apple-touch-icon.png","assets/icon-192.png","assets/icon-512.png","assets/icon-maskable-512.png"].includes(file)) {
+        response.setHeader('Content-Type',file.endsWith('.svg')?'image/svg+xml':file.endsWith('.png')?'image/png':'image/x-icon');
+        response.end(await fs.readFile(path.join(root,file)));return;
+      }
       const allowed=['index.html','styles.css','config.js','auth.js','model.js','store.js','booking.js','bagels.js','users.js','games.js','app.js','manifest.webmanifest'];
       if(!allowed.includes(file)){response.writeHead(404).end();return;}
       let content=await fs.readFile(path.join(root,file),'utf8');

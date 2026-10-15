@@ -278,7 +278,10 @@
         heading.appendChild(date);
         var details = node("div", "bagel-result-details");
         details.append(heading, node("p", "bagel-score", "6–0 · " + (bagel.winners.length === 1 ? "Singles" : "Doubles")));
-        header.append(icon("🥯", "bagel-icon"), details);
+        var artwork = node("img", "bagel-icon");
+        artwork.src = "assets/bagel.svg"; artwork.alt = ""; artwork.width = 44; artwork.height = 44;
+        artwork.setAttribute("aria-hidden", "true");
+        header.append(artwork, details);
         var teams = node("div", "bagel-teams");
         [["Winners", "🙂", bagel.winners, "bagel-winners"], ["Losers", "🙁", bagel.losers, "bagel-losers"]].forEach(function (team) {
           var group = node("section", "bagel-team-result " + team[3]); group.setAttribute("aria-label", team[0]);

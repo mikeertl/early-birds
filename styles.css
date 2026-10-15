@@ -94,6 +94,16 @@ textarea {
   text-transform: uppercase;
 }
 
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.brand-mark { width: 80px; height: 80px; flex: 0 0 auto; }
+.brand-wordmark { min-width: 0; }
+
+@media (max-width: 540px) {
+  .brand { gap: 10px; }
+  .brand-mark { width: 60px; height: 60px; }
+  .brand-eyebrow { font-size: 10px; }
+}
+
 .session-summary {
   flex-shrink: 0;
   padding: 6px 12px;
@@ -207,7 +217,7 @@ h2 {
   gap: 14px;
 }
 
-.bagel-icon { font-size: 36px; line-height: 1; }
+.bagel-icon { width: 44px; height: 44px; flex: 0 0 auto; }
 .bagel-date { margin: 0; font-size: 20px; }
 .bagel-score { margin: 4px 0 0; color: var(--muted); }
 .bagel-result-details { min-width: 0; }

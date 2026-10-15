@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+  <title>Early Birds Tennis — mistle thrush and tennis racquet</title>
+  <rect width="320" height="320" rx="64" fill="#f4f1ea"/>
+  <circle cx="160" cy="160" r="137" fill="none" stroke="#d7ded7" stroke-width="2"/>
+  <!-- A green racquet, with individually clipped strings. -->
+  <defs><clipPath id="strings"><ellipse cx="211" cy="115" rx="44" ry="62"/></clipPath></defs>
+  <g transform="rotate(34 211 115)">
+    <path d="M184 174 211 214 238 174M211 211V271" fill="none" stroke="#1f5d42" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M211 232V273" stroke="#1f2933" stroke-width="16" stroke-linecap="round"/>
+    <path d="m204 239 14 6m-14 5 14 6m-14 5 14 6" stroke="#f4f1ea" stroke-width="2"/>
+    <ellipse cx="211" cy="115" rx="51" ry="70" fill="#e3ebe0" stroke="#1f5d42" stroke-width="9"/>
+    <g clip-path="url(#strings)" fill="none" stroke="#7e9d84" stroke-width="1.5">
+      <path d="M177 48V183m11-135V183m11-135V183m11-135V183m11-135V183m11-135V183m11-135V183"/>
+      <path d="M163 64H261M163 76H261M163 88H261M163 100H261M163 112H261M163 124H261M163 136H261M163 148H261M163 160H261"/>
+    </g>
+    <ellipse cx="211" cy="115" rx="44" ry="62" fill="none" stroke="#f4f1ea" stroke-width="2"/>
+  </g>
+  <!-- Long tail, pale underparts and round spots distinguish the thrush. -->
+  <path d="m110 159-49 54 9 8 61-31" fill="#79766a" stroke="#45483d" stroke-width="3" stroke-linejoin="round"/>
+  <path d="m72 211 43-37" fill="none" stroke="#b6b2a2" stroke-width="3"/>
+  <path d="M98 163c0-23 12-41 37-44 17-2 22-11 29-19 9-10 27-7 34 4 5 8 4 17 0 24-5 10-4 28-10 43-8 24-23 41-48 39-27-1-42-20-42-47Z" fill="#95917e" stroke="#45483d" stroke-width="3"/>
+  <path d="M194 125c-15 4-22 12-24 30-1 18-7 35-25 54 20 4 35-11 43-31 7-15 5-37 6-53Z" fill="#f5eedb"/>
+  <path d="M153 137c-20-7-45 3-43 20 1 18 16 29 43 32-10-11-6-27 0-52Z" fill="#777464" stroke="#55594c" stroke-width="2"/>
+  <path d="m118 153 20-7m-19 17 17-6m-12 17 11-5" fill="none" stroke="#bcb7a1" stroke-width="3" stroke-linecap="round"/>
+  <path d="m198 113 20 9-21 3" fill="#b9a16d" stroke="#45483d" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M178 105q8-6 14 0" fill="none" stroke="#ded8c4" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="185" cy="111" r="4" fill="#242e27"/>
+  <circle cx="186" cy="110" r="1.2" fill="#fff"/>
+  <g fill="#555345">
+    <circle cx="183" cy="141" r="2.6"/><circle cx="178" cy="154" r="3"/>
+    <circle cx="184" cy="165" r="2.8"/><circle cx="170" cy="167" r="3"/>
+    <circle cx="176" cy="180" r="3"/><circle cx="164" cy="184" r="3.1"/>
+    <circle cx="164" cy="197" r="2.6"/><circle cx="152" cy="200" r="2.5"/>
+  </g>
+  <path d="m139 208-3 17m21-18-1 13m-29 6 18-1m3-4 17-2" fill="none" stroke="#6a5a43" stroke-width="3" stroke-linecap="round"/>
+</svg>
