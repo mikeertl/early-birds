@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T10:25:17.155Z",
-  "updatedBy": "akiko",
+  "updatedAt": "2026-10-15T10:59:40.974Z",
+  "updatedBy": "mike-ertl",
   "courts": [
     {
       "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
@@ -17,6 +17,21 @@
       ],
       "reserved": [],
       "createdAt": "2026-10-15T09:28:46.197Z",
+      "createdBy": "mike-ertl"
+    },
+    {
+      "id": "court-2acd3b16-559b-4de5-9067-144ad1b0e0bf",
+      "date": "2026-10-15",
+      "time": "08:00",
+      "courtNumber": 4,
+      "code": "654321",
+      "bookedBy": "mike-ertl",
+      "durationMinutes": 60,
+      "green": [
+        "mike-ertl"
+      ],
+      "reserved": [],
+      "createdAt": "2026-10-15T10:59:40.974Z",
       "createdBy": "mike-ertl"
     }
   ],
