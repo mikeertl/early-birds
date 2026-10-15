@@ -72,6 +72,20 @@
     window.EarlyBirdsBooking.init({ store: store, auth: auth, model: model, config: config });
     auth.init().then(function () {
       window.addEventListener("early-birds-session-change", refresh);
+      // A returning player should see departures and newly filled places.
+      // Coalesce focus/visibility events, and leave active forms and saves alone.
+      var returnRefresh;
+      function refreshOnReturn() {
+        window.clearTimeout(returnRefresh);
+        returnRefresh = window.setTimeout(function () {
+          var recovery = store.getRecovery();
+          if (document.visibilityState !== "visible" || document.querySelector("dialog[open]") ||
+              document.getElementById("refreshButton").disabled || (recovery && recovery.outcome === "uncertain")) return;
+          refresh();
+        }, 200);
+      }
+      window.addEventListener("focus", refreshOnReturn);
+      document.addEventListener("visibilitychange", refreshOnReturn);
       refresh();
     });
   }

@@ -105,16 +105,24 @@ is available, or yellow/reserved when four players are already green. **Reserve*
 joins or moves you to yellow even when a green place is free. **Remove me** leaves
 either list. Green players see Remove me/Reserve; reserves see Remove me and an
 Add me button when the court has room. Reserves are never promoted automatically.
+An open-place message invites eligible reserves to choose Add me. Refresh, or
+return to the browser window/tab, to see other players' changes. Return refreshes
+are skipped while a dialog is open, a request is pending or a save is uncertain.
+There is no background polling.
 
 A player cannot hold green places in simultaneous games. Add me is disabled when
 it would create that overlap, with an explanation; overlapping reserves are
 allowed. The store revalidates against fresh shared data, so another player's
 concurrent change cannot create a fifth green player or duplicate membership.
+If someone takes the last place before your join is saved, the refreshed card
+explains that you are reserved. Successful card messages clear when that game's
+membership changes, so an old full-court message cannot hide a newly open place.
 Admin assignments use the same rules in the model; their management UI is 4.5.
 
 Buttons are disabled during saves to prevent duplicate clicks. Membership colours
-change after confirmation, and each card reports its outcome. Failed changes keep
-the existing lists and offer **Retry last change**. Uncertain saves block new
+change after confirmation, and each card reports its outcome. Rejected changes
+offer **Retry last change** and re-read shared data to update available actions;
+if that read fails, the last loaded lists remain visible. Uncertain saves block new
 participation changes until the original action is reconciled. Visitors clicking
 an action are asked to sign in and no write is attempted. These buttons do not
 change other players' places.

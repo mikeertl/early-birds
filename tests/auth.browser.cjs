@@ -84,6 +84,10 @@ async function main() {
             window.mockWriteAttempts++;
             if (!window.allowWrites) throw new Error('Unexpected write');
             if (window.denySave) return new Response('{}', {status:403});
+            if (window.racingState && file === 'data/current.json') {
+              window.mockFiles[file]=JSON.stringify(window.racingState);window.racingState=null;
+              return new Response('{}', {status:409});
+            }
             await new Promise(resolve => setTimeout(resolve, 50));
             window.mockFiles[file] = atob(JSON.parse(options.body).content);
             if (window.loseAckOnce) {window.loseAckOnce=false;window.failShared=true;throw new TypeError('Simulated lost response');}
@@ -204,6 +208,28 @@ async function main() {
       control('later','green').click();control('later','green').click();await new Promise(r=>setTimeout(r,150));
       check(window.mockWriteAttempts===joinsBefore+1 && membership('later').green.length===4 && membership('later').reserved.filter(id=>id==='mike-ertl').length===1, 'full-court double join adds exactly one yellow reserve');
       check(!control('later','green') && control('later','none') && game('later').querySelector('.participation-status').textContent.includes('full'), 'full reserve sees Remove me and a clear outcome');
+      async function externalChange(change, returning=false) {
+        const state=JSON.parse(window.mockFiles['data/current.json']);change(state);
+        window.mockFiles['data/current.json']=JSON.stringify(state);
+        if(returning){window.dispatchEvent(new Event('focus'));await new Promise(r=>setTimeout(r,350));}
+        else await window.EarlyBirdsStore.refresh();
+      }
+      await externalChange(state=>{state.courts.find(c=>c.id==='later').green.pop();},true);
+      check(control('later','green') && !control('later','green').disabled && membership('later').reserved.includes('mike-ertl') && game('later').querySelector('.participation-help').textContent.includes('place is open'), 'returning to app reveals open place without promoting reserve');
+      check(!game('later').querySelector('.participation-status').textContent.includes('full'), 'refresh clears obsolete full-court feedback');
+      const raced=JSON.parse(window.mockFiles['data/current.json']);raced.courts.find(c=>c.id==='later').green.push('dimitar');window.racingState=raced;
+      const attemptsBeforeRace=window.mockWriteAttempts;await place('later','green');
+      check(window.mockWriteAttempts===attemptsBeforeRace+1 && membership('later').green.length===4 && membership('later').reserved.filter(id=>id==='mike-ertl').length===1 && game('later').querySelector('.participation-status').textContent.includes('Another player took the last place'), 'last-place SHA conflict refreshes full card and explains retained reserve');
+      await externalChange(state=>{const c=state.courts.find(c=>c.id==='later');c.green=c.green.filter(id=>id!=='dimitar');c.reserved.push('dimitar');});
+      check(control('later','green') && !control('later','green').disabled && membership('later').reserved.includes('dimitar'), 'another green player reserving opens Add me for existing reserve');
+      await place('later','green');
+      check(membership('later').green.includes('mike-ertl') && !membership('later').reserved.includes('mike-ertl') && membership('later').reserved.includes('dimitar'), 'eligible reserve explicitly claims open green place');
+      await place('later','reserved');
+      await externalChange(state=>{state.courts.find(c=>c.id==='later').green.push('dimitar');state.courts.find(c=>c.id==='later').reserved=state.courts.find(c=>c.id==='later').reserved.filter(id=>id!=='dimitar');});
+      const staleOverlap=JSON.parse(window.mockFiles['data/current.json']);
+      staleOverlap.courts.find(c=>c.id==='simultaneous-a').green.push('mike-ertl');window.mockFiles['data/current.json']=JSON.stringify(staleOverlap);
+      const attemptsBeforeOverlap=window.mockWriteAttempts;await place('simultaneous-b','green');
+      check(window.mockWriteAttempts===attemptsBeforeOverlap && control('simultaneous-b','green').disabled && game('simultaneous-b').querySelector('.participation-error').textContent.includes('Choose Reserve'), 'stale overlapping join is rejected without write and refreshed actions explain Reserve');
       window.denySave=true;await place('later','none');
       check(membership('later').reserved.includes('mike-ertl') && game('later').querySelector('.participation-error').textContent.includes('denied') && !el('retrySaveButton').hidden, 'failed membership change leaves colours and saved membership unchanged');
       window.denySave=false;el('retrySaveButton').click();await new Promise(r=>setTimeout(r,150));

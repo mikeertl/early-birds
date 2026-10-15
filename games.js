@@ -8,13 +8,14 @@
     var mutating = false;
     var storeSaving = false;
     var activeAction = null;
+    var requestedOpenPlace = false;
     var latest = null;
     function actionMessage(action, data) {
       var court = data.state.courts.find(function (item) { return item.id === action.courtId; });
       if (!court) return "This court no longer exists. Refresh to see the latest games.";
       if (action.status === "none") return "You have been removed from this game.";
       if (court.green.indexOf(action.userId) >= 0) return "You are playing in this game.";
-      return action.status === "green" ? "This court is full. You have been added as a reserve." : "You are now reserved for this game.";
+      return action.status === "green" ? (requestedOpenPlace ? "Another player took the last place. You are now reserved for this game." : "This court is full. You have been added as a reserve.") : "You are now reserved for this game.";
     }
     function locked() {
       var recovery = store.getRecovery();
@@ -42,6 +43,8 @@
       if (locked() || !auth.requireWrite()) return;
       var actor = auth.getSession();
       var action = { type: "participation.set", courtId: courtId, userId: actor.userId, status: status };
+      var shownCourt = latest && latest.state.courts.find(function (court) { return court.id === courtId; });
+      requestedOpenPlace = status === "green" && shownCourt && shownCourt.green.length < options.config.booking.capacity;
       mutating = true;
       feedback.set(courtId, { message: "Saving your place…", error: false });
       updateControls();
@@ -49,7 +52,13 @@
         var recovery = store.getRecovery();
         if (recovery && JSON.stringify(recovery.action) === JSON.stringify(action)) await store.retry();
         else await store.mutate(action);
-      } catch (_) { /* The store retains the action and publishes a safe error. */ }
+      } catch (error) {
+        // Re-read after a definite rejection: the court or another membership
+        // may have changed since this screen was drawn. Keep the failed intent.
+        if (error.outcome === "failed") {
+          try { await store.refresh(); } catch (_) { /* Keep the last good cards and recovery message. */ }
+        }
+      }
       finally {
         mutating = false; updateControls();
         var live = auth.getSession();
@@ -69,7 +78,8 @@
           var saved = event.status.save.outcome === "saved" && event.data;
           var message = saved ? actionMessage(activeAction, event.data) : event.status.message;
           if (!saved && message.indexOf("overlapping") >= 0) message = "You already have a place in another game at this time. Choose Reserve instead.";
-          feedback.set(activeAction.courtId, { message: message, error: !saved });
+          var court = event.data && event.data.state.courts.find(function (item) { return item.id === activeAction.courtId; });
+          feedback.set(activeAction.courtId, { message: message, error: !saved, membership: saved && court ? JSON.stringify([court.green, court.reserved]) : null });
         }
         activeAction = null;
       }
@@ -109,6 +119,8 @@
       });
       list.replaceChildren();
       courts.forEach(function (court, index) {
+        var previousMessage = feedback.get(court.id);
+        if (previousMessage && previousMessage.membership && previousMessage.membership !== JSON.stringify([court.green, court.reserved])) feedback.delete(court.id);
         var card = element("article", "game-card");
         card.dataset.courtId = court.id;
         var details = element("div", "game-details");
@@ -171,6 +183,7 @@
         players.appendChild(actions);
         if (overlap) players.appendChild(element("p", "participation-help field-help", "You already have a place in another game at this time. You can still reserve."));
         else if (full && !isGreen && !isReserved) players.appendChild(element("p", "participation-help field-help", "Court full. Add me joins the reserves."));
+        else if (isReserved && !full) players.appendChild(element("p", "participation-help field-help", "A place is open. Choose Add me to play; reserves are not moved automatically."));
         var statusLine = element("p", "participation-status status-line");
         statusLine.setAttribute("role", "status"); statusLine.setAttribute("aria-atomic", "true");
         var errorLine = element("p", "participation-error error-line");
