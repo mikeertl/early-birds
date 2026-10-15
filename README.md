@@ -326,6 +326,31 @@ duplicate clicks, overlapping games, no automatic promotion, failed saves and
 uncertain-save reconciliation. Model tests also check Admin capacity/overlap rules
 and block ordinary players from changing another player.
 
+## Stage 3 acceptance (task 3.7)
+
+Run the independent-session browser acceptance test with Node.js 22+ and Chrome:
+
+```sh
+node tests/stage3.browser.cjs
+```
+
+It starts its own temporary local server and GitHub Contents simulator; no
+preview server, credentials or live GitHub access are needed. Five separate
+browser contexts book simultaneous courts through the forms, join up to four
+green players, race for the last place with a forced SHA conflict, reserve,
+remove and reclaim places, and recover a rejected save. Both racing players
+remain recorded and refreshed sessions converge. All browser profiles and the
+temporary server are removed/stopped afterwards. `CHROME_BIN` selects Chrome;
+`STAGE3_RESULT_PATH` optionally saves a JSON report to the supplied path.
+
+Task 3.7 passed on 2026-10-15: all 17 multi-session checks, all 33 model/store
+tests and the full browser regression suite passed. This includes London
+midnight, both daylight-saving boundaries, open-page expiry, cleanup recovery,
+court editing/deletion and responsive layouts. See
+[the recorded Stage 3 result](docs/stage3-verification.json). These checks use
+isolated simulated shared data. The earlier real GitHub verification is recorded
+below; live GitHub was not rerun for 3.7. Production data was unchanged.
+
 ## Live foundation verification (task 2.6)
 
 Use a dedicated repository such as `mikeertl/early-birds-test` and a token granting

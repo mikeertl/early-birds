@@ -1,0 +1,52 @@
+{
+  "task": "3.7",
+  "result": "passed",
+  "transport": "Local in-memory GitHub Contents simulator; no external requests or live writes",
+  "checks": [
+    "Five independent browser sessions sign in with different players",
+    "Booking forms create independent simultaneous courts and enrol each booker",
+    "Another simultaneous green place disables Add me",
+    "Voluntary reserve frees overlap while simultaneous reserve membership is retained",
+    "Two browser joins read the same SHA and encounter a forced Contents conflict",
+    "Last-place race retains both players with four green and one reserve",
+    "Losing browser explains last-place outcome and shows reserve membership",
+    "Both sessions converge after refresh without lost membership",
+    "Choosing Reserve opens a place without automatically promoting another reserve",
+    "Reserve explicitly claims a place; removal and reclaim work across sessions",
+    "Rejected write retains confirmed membership and offers retry",
+    "Retry reaches shared data and is visible in the other session",
+    "Independent identity retained without browser errors: arda",
+    "Independent identity retained without browser errors: ellen",
+    "Independent identity retained without browser errors: dimitar",
+    "Independent identity retained without browser errors: mike-ertl",
+    "Independent identity retained without browser errors: akiko"
+  ],
+  "conflicts": 1,
+  "finishedAt": "2026-10-15T10:47:29.699Z",
+  "modelStore": {
+    "result": "passed",
+    "tests": 33,
+    "command": "node --test tests/store.test.cjs",
+    "dateCoverage": [
+      "Summer London midnight (23:00 UTC)",
+      "Winter London midnight (00:00 UTC)",
+      "Midnight on spring-forward and fall-back dates",
+      "London calendar date preserved during both DST clock changes"
+    ]
+  },
+  "browserRegression": {
+    "result": "passed",
+    "command": "TEST_URL=http://127.0.0.1:8001/ node tests/auth.browser.cjs",
+    "coverage": [
+      "Booking and participation controls",
+      "Admin tab placement, permissions, editing and deletion",
+      "Failed/uncertain save recovery",
+      "Phone/desktop layouts at 320, 390, 768 and 1280 pixels",
+      "Open visitor and signed-in pages at simulated London midnight",
+      "Cleanup rejection and unknown-acknowledgement recovery"
+    ]
+  },
+  "multiSessionCommand": "node tests/stage3.browser.cjs",
+  "priorLiveGitHubEvidence": "foundation-verification.json (task 2.6); live GitHub was not rerun for this task",
+  "productionDataChanged": false
+}
