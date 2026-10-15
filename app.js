@@ -76,9 +76,10 @@
       var day = model.londonClock(new Date().toISOString()).date;
       if (day !== displayedDay) {
         displayedDay = day; cleanupDue = true;
-        var data = store.getSnapshot();
-        if (data) games.render(data);
       }
+      // Eligibility also changes when an hour-long game ends during the day.
+      var data = store.getSnapshot();
+      if (data) games.render(data);
     }
     function expiryTick() {
       checkExpiry();

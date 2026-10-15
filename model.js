@@ -81,6 +81,15 @@
       var values = {}; parts.forEach(function (part) { values[part.type] = part.value; });
       return { date: values.year + "-" + values.month + "-" + values.day, minutes: Number(values.hour) * 60 + Number(values.minute) };
     }
+    function canReportBagel(court, actor, now, fromAdmin) {
+      if (!actor || (fromAdmin && !actor.isAdmin)) return false;
+      if (fromAdmin && !court) return true; // Standalone historical entry.
+      if (!court) return false;
+      var clock = londonClock(now);
+      var ended = court.date < clock.date || (court.date === clock.date &&
+        clock.minutes >= Number(court.time.slice(0, 2)) * 60 + court.durationMinutes);
+      return ended && (fromAdmin || (court.date === clock.date && court.green.indexOf(actor.userId) >= 0));
+    }
     function applyState(original, directory, action, actor, now) {
       var next = validateState(original, directory);
       var clock = londonClock(now);
@@ -88,6 +97,10 @@
       function active(id) { check(directory.users.some(function (user) { return user.id === id && user.active; }), "That player is not active."); }
       function owned(court) { check(court && (actor.isAdmin || court.bookedBy === actor.userId), "Only the booker or Admin can change this court."); }
       function future(court) { check(court.date > clock.date || (court.date === clock.date && Number(court.time.slice(0, 2)) * 60 > clock.minutes), "Bookings must start in the future."); }
+      function bookingDate(court) {
+        if (actor.isAdmin) check(court.date >= clock.date, "Courts before today have expired. Use historical bagel entry for previous dates.");
+        else future(court);
+      }
       var court = next.courts.find(function (item) { return item.id === action.courtId; });
       active(actor.userId);
       switch (action.type) {
@@ -99,7 +112,7 @@
             check(["date", "time", "courtNumber", "code", "bookedBy"].every(function (key) { return existing[key] === input[key]; }), "This booking ID already has different details.");
             break;
           }
-          check(actor.isAdmin || input.bookedBy === actor.userId, "Only Admin can book for another player."); active(input.bookedBy); future(input);
+          check(actor.isAdmin || input.bookedBy === actor.userId, "Only Admin can book for another player."); active(input.bookedBy); bookingDate(input);
           next.courts.push(Object.assign({}, input, { durationMinutes: booking.durationMinutes, green: [input.bookedBy], reserved: [], createdAt: now, createdBy: actor.userId }));
           break;
         }
@@ -113,7 +126,7 @@
             check(court[key] === action.expected[key] || court[key] === action.changes[key], "This court was edited by someone else. Refresh and review your change.");
             court[key] = action.changes[key];
           });
-          future(court); break;
+          bookingDate(court); break;
         case "court.remove":
           if (court) {
             owned(court);
@@ -153,8 +166,7 @@
           var source = next.courts.find(function (item) { return item.id === bagel.sourceCourtId; });
           check(Array.isArray(bagel.winnerIds) && Array.isArray(bagel.loserIds), "Choose the bagel players.");
           if (!actor.isAdmin) {
-            check(source && source.date === clock.date && bagel.date === source.date &&
-              clock.minutes >= Number(source.time.slice(0, 2)) * 60 + booking.durationMinutes && source.green.indexOf(actor.userId) >= 0,
+            check(canReportBagel(source, actor, now, false) && bagel.date === source.date,
             "Bagels must be submitted by a green player after today's game.");
             check(bagel.winnerIds.concat(bagel.loserIds).every(function (id) { return source.green.indexOf(id) >= 0; }), "Choose players from this game's green list.");
           }
@@ -192,7 +204,7 @@
       } else throw new Error("Unknown player-data action.");
       return validateUsers(next);
     }
-    return Object.freeze({ validateUsers: validateUsers, validateState: validateState, applyState: applyState, applyUsers: applyUsers, londonClock: londonClock });
+    return Object.freeze({ validateUsers: validateUsers, validateState: validateState, applyState: applyState, applyUsers: applyUsers, londonClock: londonClock, canReportBagel: canReportBagel });
   }
   if (typeof module === "object" && module.exports) module.exports = createModel;
   else root.createEarlyBirdsModel = createModel;

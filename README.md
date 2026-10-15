@@ -63,7 +63,8 @@ Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API
 Games shows booking cards or an empty state; the other tabs show loaded counts.
 Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
 cards. Tasks 3.3–3.4 add participation controls and action refresh; 3.5 adds court
-editing and deletion. Bagel entry and Admin player management are subsequent tasks. Branding artwork and
+editing and deletion. Task 4.1 adds Bagel eligibility/actions; the reporting form
+is task 4.2 and Admin player management is 4.5. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -73,6 +74,14 @@ player can book without Admin mode. The booker is prefilled with your name and
 automatically receives a green place. Choose a day from this/next week's quick
 buttons, or use the date picker for any future date. Sunday opens the next-week
 shortcuts by default. No recurring slots are generated.
+
+In **Admin**, **+ Add Court** also accepts an earlier time today, so a missed
+08:00 booking can be entered after the game. It defaults to today's London date
+and 08:00, and lets Admin select an active booker, who receives the green place.
+Admin can also edit today's completed bookings. Previous dates remain expired;
+use historical bagel entry for older results. Games keeps future-only booking,
+including when the signed-in player has Admin mode enabled. Duplicate, overlap,
+court-number and code validation still apply.
 
 Time defaults to 08:00, with hourly starts from 07:00 to 21:00 and a fixed one-hour
 duration in Europe/London. Choose court 1–6 and enter a six-digit code. A pasted
@@ -98,6 +107,28 @@ are resolved from stable user IDs. Names are inserted as text, never HTML. Playe
 lists sit to the right on wider screens and beneath booking details on phones.
 Previous London dates are hidden in Games and Admin; today's finished games stay
 visible until midnight.
+
+## Bagel eligibility (task 4.1)
+
+Games shows **Bagel?** only to a signed-in green player once the game's one-hour
+duration has ended, through the end of that London calendar day. Reserves,
+visitors and other players do not get that action. Two-player games qualify;
+four green players are not required. The button updates on minute boundaries,
+session/data changes and return to the window/tab, including across midnight
+and daylight-saving changes. Opening it rechecks current shared data; failed
+reads or changed membership cannot confirm stale eligibility.
+
+Admin reporting is in the **Admin** tab: completed courts have a Bagel action,
+and **Add historical bagel** does not require a live court or green membership.
+Games keeps its ordinary green-player restriction even with Admin mode on.
+Historical entry must use a past/current date; saves enforce the existing rules.
+
+The current dialog confirms eligibility and clearly states that reporting is
+not available yet. Selecting teams and saving the set are task 4.2. This stage's
+entry actions do not create records. The data reducer already revalidates
+ordinary-player membership, time and same-day eligibility on every save.
+
+The branding bird was confirmed as a **mistle thrush**; artwork remains task 5.1.
 
 ## Court expiry and cleanup
 

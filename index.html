@@ -83,7 +83,9 @@
           </div>
           <div id="adminContent" class="content-list" data-panel-content hidden>
             <p id="adminPlayerCount"></p>
+            <button id="historicalBagelButton" class="button secondary" type="button" data-bagel-court="" data-bagel-admin="true" hidden>Add historical bagel</button>
             <h3>Court management</h3>
+            <button id="adminAddCourtButton" class="button" type="button" hidden>+ Add Court</button>
             <div id="adminCourtsList" class="content-list"></div>
             <p id="adminCourtsEmpty" hidden>No courts to manage yet.</p>
           </div>
@@ -108,6 +110,13 @@
         </section>
         <noscript><p>Please enable JavaScript to use Early Birds Tennis.</p></noscript>
       </main>
+      <dialog id="bagelDialog" aria-labelledby="bagelTitle" aria-describedby="bagelContext">
+        <h2 id="bagelTitle">Bagel?</h2>
+        <p id="bagelContext"></p>
+        <p id="bagelEligibility" class="status-line" role="status" aria-atomic="true"></p>
+        <p id="bagelUnavailable" class="field-help" hidden>Bagel reporting is not available yet.</p>
+        <div class="form-actions"><button id="closeBagelButton" class="button secondary" type="button">Close</button></div>
+      </dialog>
       <dialog id="courtDialog" aria-labelledby="courtTitle" aria-describedby="courtDescription">
         <form id="courtForm">
           <h2 id="courtTitle">Add Court</h2>

@@ -417,3 +417,64 @@ test('London midnight cleanup honours summer/winter dates and both daylight-savi
   assert.equal(model.londonClock('2026-03-29T01:00:00Z').date,'2026-03-29');
   assert.equal(model.londonClock('2026-10-25T01:00:00Z').date,'2026-10-25');
 });
+test('Bagel eligibility starts at the one-hour end and ends at London midnight, with singles allowed', () => {
+  const game=court('singles',{date:'2026-07-10',green:['mike-ertl','akiko'],reserved:['arda']});
+  const mike={userId:'mike-ertl',isAdmin:false};
+  assert.equal(model.canReportBagel(game,mike,'2026-07-10T07:59:59Z'),false); // 08:59:59 BST.
+  assert.equal(model.canReportBagel(game,mike,'2026-07-10T08:00:00Z'),true);
+  assert.equal(model.canReportBagel(game,mike,'2026-07-10T22:59:59Z'),true);
+  assert.equal(model.canReportBagel(game,mike,'2026-07-10T23:00:00Z'),false);
+  assert.equal(model.canReportBagel(game,{userId:'arda',isAdmin:false},'2026-07-10T08:00:00Z'),false);
+  assert.equal(model.canReportBagel(game,{userId:'ellen',isAdmin:true},'2026-07-10T08:00:00Z'),false);
+  assert.equal(model.canReportBagel(game,null,'2026-07-10T08:00:00Z'),false);
+  assert.equal(model.canReportBagel(null,mike,'2026-07-10T08:00:00Z'),false);
+  for(const [date,before,end] of [
+    ['2026-03-29','2026-03-29T07:59:59Z','2026-03-29T08:00:00Z'],
+    ['2026-10-25','2026-10-25T08:59:59Z','2026-10-25T09:00:00Z'],
+  ]) {
+    assert.equal(model.canReportBagel({...game,date},mike,before),false);
+    assert.equal(model.canReportBagel({...game,date},mike,end),true);
+  }
+});
+test('Admin Bagel entry is explicit and permits historical reporting without a live court', async () => {
+  const admin={userId:'ellen',isAdmin:true};const game=court('old',{date:'2026-10-13'});
+  assert.equal(model.canReportBagel(game,admin,now,true),true);
+  assert.equal(model.canReportBagel(null,admin,now,true),true);
+  assert.equal(model.canReportBagel(null,{userId:'ellen',isAdmin:false},now,true),false);
+  assert.equal(model.canReportBagel({...game,date:'2026-10-15'},admin,now,true),false);
+  const remote=server();const {store}=client(remote,'ellen',true);
+  await store.mutate({type:'bagel.add',bagel:{id:'historical',sourceCourtId:null,date:'2026-10-13',winnerIds:['mike-ertl'],loserIds:['akiko']}});
+  assert.equal(remote.documents['data/current.json'].bagels.length,1);
+});
+test('Bagel save revalidates fresh membership, date and time without writing rejected entries', async () => {
+  const remote=server();remote.documents['data/current.json'].courts=[court('a',{time:'11:00',green:['mike-ertl','akiko']})];
+  let clock='2026-10-14T10:59:59Z'; // 11:59:59 London.
+  const {store}=client(remote,'mike-ertl',false,{now:()=>new Date(clock)});
+  const action={type:'bagel.add',bagel:{id:'eligibility-set',sourceCourtId:'a',date:'2026-10-14',winnerIds:['mike-ertl'],loserIds:['akiko']}};
+  await assert.rejects(store.mutate(action),/after today's game/);assert.equal(remote.puts,0);
+  clock='2026-10-14T11:00:00Z';await store.refresh();
+  remote.documents['data/current.json'].courts[0].green=['akiko'];remote.documents['data/current.json'].courts[0].reserved=['mike-ertl'];
+  await assert.rejects(store.mutate(action),/green player/);assert.equal(remote.puts,0);
+  remote.documents['data/current.json'].courts[0].green=['mike-ertl','akiko'];remote.documents['data/current.json'].courts[0].reserved=[];
+  clock='2026-10-14T23:00:00Z';
+  await assert.rejects(store.mutate(action),/today's game/);assert.equal(remote.puts,0);
+  clock='2026-10-14T11:00:00Z';await store.mutate(action);assert.equal(remote.puts,1);
+});
+test('Admin can add and edit earlier today for a selected booker, preserving expiry and booking validation', async () => {
+  const remote=server();const ordinary=client(remote).store, admin=client(remote,'mike-ertl',true).store;
+  const booking={id:'missed',date:'2026-10-14',time:'08:00',courtNumber:2,code:'001234',bookedBy:'akiko'};
+  await assert.rejects(ordinary.mutate({type:'court.add',court:{...booking,bookedBy:'mike-ertl'}}),/future/);
+  await admin.mutate({type:'court.add',court:booking});
+  assert.deepEqual(remote.documents['data/current.json'].courts[0].green,['akiko']);
+  assert.equal(remote.documents['data/current.json'].courts[0].createdBy,'mike-ertl');
+  await admin.mutate({type:'court.patch',courtId:'missed',expected:{code:'001234'},changes:{code:'002345'}});
+  assert.equal(remote.documents['data/current.json'].courts[0].code,'002345');
+  for(const [changes,error] of [
+    [{id:'previous-date',date:'2026-10-13'},/before today/],
+    [{id:'duplicate',bookedBy:'ellen'},/already booked/],
+    [{id:'overlap',courtNumber:3},/overlapping/],
+    [{id:'invalid-time',time:'06:00'},/Invalid court date or time/],
+  ]) await assert.rejects(admin.mutate({type:'court.add',court:{...booking,...changes}}),error);
+  await assert.rejects(admin.mutate({type:'court.patch',courtId:'missed',expected:{date:booking.date},changes:{date:'2026-10-13'}}),/before today/);
+  assert.equal(remote.puts,2);
+});

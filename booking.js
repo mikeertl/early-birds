@@ -3,7 +3,7 @@
   function init(options) {
     var store = options.store, auth = options.auth, model = options.model, config = options.config;
     var el = {}, drafts = new Map(), draft = null, weekOffset = 0;
-    ["addCourtButton", "courtDialog", "courtForm", "courtFields", "courtBooker", "courtDate", "courtTime", "courtNumber",
+    ["addCourtButton", "adminAddCourtButton", "courtDialog", "courtForm", "courtFields", "courtBooker", "courtDate", "courtDateHelp", "courtTime", "courtNumber",
       "courtCode", "courtQuickDates", "thisWeekButton", "nextWeekButton", "courtStatus", "courtError", "saveCourtButton", "closeCourtButton",
       "courtTitle", "courtDescription", "courtBookerSelect", "reloadCourtButton"].forEach(function (id) {
       el[id] = document.getElementById(id);
@@ -21,7 +21,7 @@
     function capture() {
       if (!draft) return;
       draft.values = { date: el.courtDate.value, time: el.courtTime.value, courtNumber: el.courtNumber.value, code: el.courtCode.value };
-      if (draft.mode === "edit") draft.values.bookedBy = el.courtBookerSelect.value;
+      if (draft.mode === "edit" || draft.fromAdmin) draft.values.bookedBy = el.courtBookerSelect.value;
     }
     function intent() {
       if (draft.mode === "delete") return { type: "court.remove", courtId: draft.id, expected: draft.original };
@@ -34,7 +34,7 @@
         return { type: "court.patch", courtId: draft.id, expected: expected, changes: changes };
       }
       return { type: "court.add", court: { id: draft.id, date: draft.values.date, time: draft.values.time,
-        courtNumber: Number(draft.values.courtNumber), code: draft.values.code, bookedBy: draft.userId } };
+        courtNumber: Number(draft.values.courtNumber), code: draft.values.code, bookedBy: draft.values.bookedBy || draft.userId } };
     }
     function isThisAction(action) {
       return draft && action && (draft.mode === "add" ? action.type === "court.add" && action.court.id === draft.id :
@@ -65,11 +65,11 @@
       }
     }
     function showBooker(data) {
-      var id = draft && (draft.mode === "add" ? draft.userId : draft.values.bookedBy);
+      var id = draft && (draft.values.bookedBy || draft.userId);
       var users = data ? data.users.users : [];
       var user = users.find(function (item) { return item.id === id; });
       el.courtBooker.value = user ? user.name : (id || "");
-      var editable = draft && draft.fromAdmin && draft.mode === "edit" && auth.getSession() && auth.getSession().isAdmin;
+      var editable = draft && draft.fromAdmin && draft.mode !== "delete" && auth.getSession() && auth.getSession().isAdmin;
       el.courtBooker.hidden = Boolean(editable);
       el.courtBookerSelect.hidden = !editable;
       el.courtBooker.previousElementSibling.htmlFor = editable ? "courtBookerSelect" : "courtBooker";
@@ -94,7 +94,7 @@
       if (!draft) {
         draft = { id: courtId || "court-" + window.crypto.randomUUID(), userId: actor.userId, isAdmin: actor.isAdmin, fromAdmin: Boolean(fromAdmin), mode: mode, key: key,
           original: court ? details(court) : null,
-          values: court ? details(court) : { date: "", time: config.booking.defaultTime, courtNumber: "", code: "" }, pending: false, submitted: false };
+          values: court ? details(court) : { date: fromAdmin ? clock().date : "", time: config.booking.defaultTime, courtNumber: "", code: "", bookedBy: actor.userId }, pending: false, submitted: false };
         drafts.set(key, draft);
       }
       displayDraft();
@@ -107,7 +107,9 @@
       el.courtTitle.textContent = draft.mode === "delete" ? "Delete court?" : draft.mode === "edit" ? "Edit court" : "Add Court";
       el.courtDescription.textContent = draft.mode === "delete" ? "Delete Court " + draft.original.courtNumber + " on " + draft.original.date + " at " + draft.original.time + "? Its playing and reserve lists will be removed. Recorded bagels will be kept." :
         draft.mode === "edit" ? "Update this booking. " + (draft.fromAdmin ? "Changing the booker does not change who is playing. " : "") + "Load latest details replaces your unsaved edits." :
-          "Add a court you have booked. You will automatically join as a player.";
+          draft.fromAdmin ? "Add a missed court, including an earlier time today. The selected booker will automatically join as a player." :
+            "Add a court you have booked. You will automatically join as a player.";
+      el.courtDateHelp.textContent = draft.fromAdmin ? "Today or a future date. Admin can use an earlier time today; previous days have expired." : "Or choose any future date using the date picker.";
       el.courtFields.hidden = draft.mode === "delete";
       el.courtForm.noValidate = draft.mode === "delete";
       showBooker(store.getSnapshot());
@@ -144,7 +146,7 @@
       if (!retrying) {
         if (draft.mode !== "delete" && !el.courtForm.reportValidity()) return;
         var today = clock();
-        if (draft.mode !== "delete" && (draft.values.date < today.date || (draft.values.date === today.date && Number(draft.values.time.slice(0, 2)) * 60 <= today.minutes))) {
+        if (draft.mode !== "delete" && (draft.values.date < today.date || (!draft.fromAdmin && draft.values.date === today.date && Number(draft.values.time.slice(0, 2)) * 60 <= today.minutes))) {
           draft.error = "Choose a start time in the future (Europe/London).";
           renderDraft(); el.courtDate.focus(); return;
         }
@@ -162,6 +164,7 @@
       }
     }
     el.addCourtButton.addEventListener("click", function () { open("add"); });
+    el.adminAddCourtButton.addEventListener("click", function () { open("add", undefined, true); });
     ["gamesList", "adminCourtsList"].forEach(function (id) {
       document.getElementById(id).addEventListener("click", function (event) {
         var button = event.target.closest("[data-court-management]");
@@ -201,6 +204,7 @@
     store.subscribe(function (event) {
       var pendingRecovery = store.getRecovery();
       el.addCourtButton.disabled = event.status.phase === "saving" || Boolean(pendingRecovery && pendingRecovery.outcome === "uncertain");
+      el.adminAddCourtButton.disabled = el.addCourtButton.disabled;
       if (!draft) return;
       var recovery = store.getRecovery();
       if (recovery && isThisAction(recovery.action)) {
@@ -216,7 +220,7 @@
         var fromAdmin = draft.fromAdmin;
         drafts.delete(draft.key); draft = null;
         el.courtDialog.close(); el.courtForm.reset();
-        var target = fromAdmin ? document.querySelector("#adminCourtsList [data-court-management]") || document.getElementById("adminTabButton") : el.addCourtButton;
+        var target = fromAdmin ? document.querySelector("#adminCourtsList [data-court-management]") || el.adminAddCourtButton : el.addCourtButton;
         target.focus();
       } else { showBooker(event.data); renderDraft(); }
     });
