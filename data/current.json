@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T11:01:13.795Z",
-  "updatedBy": "dimitar",
+  "updatedAt": "2026-10-15T11:01:29.431Z",
+  "updatedBy": "ellen",
   "courts": [
     {
       "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
@@ -29,7 +29,8 @@
       "durationMinutes": 60,
       "green": [
         "mike-ertl",
-        "dimitar"
+        "dimitar",
+        "ellen"
       ],
       "reserved": [],
       "createdAt": "2026-10-15T10:59:40.974Z",
