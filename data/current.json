@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T09:55:01.595Z",
+  "updatedAt": "2026-10-15T09:55:08.572Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -11,10 +11,10 @@
       "code": "111222",
       "bookedBy": "mike-ertl",
       "durationMinutes": 60,
-      "green": [],
-      "reserved": [
+      "green": [
         "mike-ertl"
       ],
+      "reserved": [],
       "createdAt": "2026-10-15T09:28:46.197Z",
       "createdBy": "mike-ertl"
     }
