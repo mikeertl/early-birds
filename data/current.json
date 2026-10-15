@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T13:02:53.964Z",
+  "updatedAt": "2026-10-15T13:32:20.764Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -40,33 +40,5 @@
       "createdBy": "mike-ertl"
     }
   ],
-  "bagels": [
-    {
-      "id": "bagel-ea05eb6e-2d8e-4533-a1e5-c9b5025f5535",
-      "sourceCourtId": "court-2acd3b16-559b-4de5-9067-144ad1b0e0bf",
-      "date": "2026-10-15",
-      "winners": [
-        {
-          "userId": "mike-ertl",
-          "name": "Mike"
-        },
-        {
-          "userId": "akiko",
-          "name": "Akiko"
-        }
-      ],
-      "losers": [
-        {
-          "userId": "dimitar",
-          "name": "Dimitar"
-        },
-        {
-          "userId": "ellen",
-          "name": "Ellen"
-        }
-      ],
-      "createdAt": "2026-10-15T11:07:01.480Z",
-      "createdBy": "mike-ertl"
-    }
-  ]
+  "bagels": []
 }
