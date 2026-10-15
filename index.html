@@ -13,6 +13,7 @@
     <script src="store.js" defer></script>
     <script src="auth.js" defer></script>
     <script src="booking.js" defer></script>
+    <script src="bagels.js" defer></script>
     <script src="games.js" defer></script>
     <script src="app.js" defer></script>
   </head>
@@ -111,11 +112,41 @@
         <noscript><p>Please enable JavaScript to use Early Birds Tennis.</p></noscript>
       </main>
       <dialog id="bagelDialog" aria-labelledby="bagelTitle" aria-describedby="bagelContext">
-        <h2 id="bagelTitle">Bagel?</h2>
-        <p id="bagelContext"></p>
-        <p id="bagelEligibility" class="status-line" role="status" aria-atomic="true"></p>
-        <p id="bagelUnavailable" class="field-help" hidden>Bagel reporting is not available yet.</p>
-        <div class="form-actions"><button id="closeBagelButton" class="button secondary" type="button">Close</button></div>
+        <form id="bagelForm">
+          <h2 id="bagelTitle">Record a bagel</h2>
+          <p id="bagelContext"></p>
+          <p id="bagelEligibility" class="status-line" role="status" aria-atomic="true"></p>
+          <section id="existingBagels" hidden aria-labelledby="existingBagelsTitle">
+            <h3 id="existingBagelsTitle">Already recorded</h3>
+            <ul id="existingBagelsList"></ul>
+            <p class="field-help">Each record is one 6–0 set. Check these before adding another.</p>
+          </section>
+          <fieldset id="bagelDateFields" class="court-fields">
+            <label for="bagelDate">Game date</label>
+            <input id="bagelDate" type="date" required />
+          </fieldset>
+          <fieldset id="bagelFields" class="court-fields">
+            <label for="bagelFormat">Format</label>
+            <select id="bagelFormat"><option value="singles">Singles — one winner and one loser</option><option value="doubles">Doubles — two winners and two losers</option></select>
+            <p id="bagelPlayersHelp" class="field-help"></p>
+            <fieldset class="bagel-team"><legend>Winners · 6 games</legend>
+              <label for="bagelWinner1">Winner 1</label><select id="bagelWinner1" required></select>
+              <div id="bagelWinner2Row" hidden><label for="bagelWinner2">Winner 2</label><select id="bagelWinner2"></select></div>
+            </fieldset>
+            <fieldset class="bagel-team"><legend>Losers · 0 games</legend>
+              <label for="bagelLoser1">Loser 1</label><select id="bagelLoser1" required></select>
+              <div id="bagelLoser2Row" hidden><label for="bagelLoser2">Loser 2</label><select id="bagelLoser2"></select></div>
+            </fieldset>
+          </fieldset>
+          <p id="bagelStatus" class="status-line" role="status" aria-atomic="true"></p>
+          <p id="bagelError" class="error-line" role="alert" aria-atomic="true"></p>
+          <div class="form-actions">
+            <button id="saveBagelButton" class="button" type="submit">Save 6–0 set</button>
+            <button id="anotherBagelButton" class="button secondary" type="button" hidden>Record another 6–0 set</button>
+            <button id="refreshBagelButton" class="button secondary" type="button">Refresh game</button>
+            <button id="closeBagelButton" class="button secondary" type="button">Close</button>
+          </div>
+        </form>
       </dialog>
       <dialog id="courtDialog" aria-labelledby="courtTitle" aria-describedby="courtDescription">
         <form id="courtForm">

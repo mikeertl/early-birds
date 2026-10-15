@@ -557,9 +557,9 @@ async function main() {
     console.log('Bagel action appears at one-hour end via local timer, including two-player singles');
     const bagelWrites=await evaluate('window.mockWriteAttempts');
     await evaluate(`(async()=>{document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));})()`);
-    assert(await evaluate(`document.getElementById('bagelDialog').open && document.getElementById('bagelEligibility').textContent.includes('Eligible') && !document.getElementById('bagelUnavailable').hidden`));
+    assert(await evaluate(`document.getElementById('bagelDialog').open && document.getElementById('bagelEligibility').textContent.includes('Eligible') && !document.getElementById('bagelFields').disabled`));
     assert.equal(await evaluate('window.mockWriteAttempts'),bagelWrites);
-    console.log('Bagel action rechecks shared data and explains that reporting form is not yet available, without writing');
+    console.log('Bagel action rechecks shared data and opens the reporting form, without writing');
     for(const width of [320,390,768,1280]) {
       await cdp('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<540});
       assert(await evaluate('document.getElementById("bagelDialog").scrollWidth <= document.getElementById("bagelDialog").clientWidth && document.documentElement.scrollWidth <= window.innerWidth'));
@@ -570,7 +570,7 @@ async function main() {
       court.green=['akiko'];court.reserved=['mike-ertl'];window.mockFiles['data/current.json']=JSON.stringify(state);
     })()`);
     await evaluate(`(async()=>{document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));})()`);
-    assert(await evaluate(`document.getElementById('bagelEligibility').textContent.includes('no longer eligible') && document.getElementById('bagelUnavailable').hidden && !document.querySelector('${gameBagel}') && Boolean(document.querySelector('${adminBagel}'))`));
+    assert(await evaluate(`document.getElementById('bagelEligibility').textContent.includes('no longer eligible') && document.getElementById('bagelFields').disabled && !document.querySelector('${gameBagel}') && Boolean(document.querySelector('${adminBagel}'))`));
     console.log('Stale Bagel action rejects changed green membership; Admin reporting stays in Admin');
     await evaluate(`(async()=>{
       document.getElementById('closeBagelButton').click();document.getElementById('adminTabButton').click();
@@ -585,7 +585,7 @@ async function main() {
       window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();
       window.failShared=true;document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));
     })()`);
-    assert(await evaluate(`document.getElementById('bagelEligibility').textContent.includes('Could not check eligibility') && document.getElementById('bagelUnavailable').hidden && document.getElementById('historicalBagelButton').hidden`));
+    assert(await evaluate(`document.getElementById('bagelEligibility').textContent.includes('Could not check eligibility') && document.getElementById('bagelFields').disabled && document.getElementById('historicalBagelButton').hidden`));
     console.log('Failed eligibility refresh gives an error and never reports stale permission as confirmed');
     await evaluate(`(async()=>{
       window.failShared=false;document.getElementById('closeBagelButton').click();document.querySelector('${gameBagel}').click();await new Promise(r=>setTimeout(r,100));
@@ -625,6 +625,100 @@ async function main() {
     await evaluate(`document.getElementById('closeCourtButton').click();document.getElementById('adminTabButton').click();document.getElementById('adminAddCourtButton').click();document.getElementById('courtDate').value='2026-10-15'`);
     assert(await evaluate(`document.getElementById('courtDate').min==='2026-10-16' && !document.getElementById('courtDate').checkValidity()`));
     console.log('Admin backdating stops at today, preserving daily cleanup');
+    await evaluate(`(async()=>{
+      document.getElementById('closeCourtButton').click();document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=false;
+      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.forEach(c=>{c.green=c.id==='expiry-future'?['mike-ertl','akiko']:[];c.reserved=[];});
+      window.mockFiles['data/current.json']=JSON.stringify(state);await window.EarlyBirdsStore.refresh();
+      document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    assert(await evaluate(`!document.getElementById('bagelFields').disabled && document.getElementById('bagelFormat').value==='singles' && document.getElementById('bagelWinner1').options.length===3`));
+    console.log('Two green players can report singles and selections exclude other players');
+    await evaluate(`(()=>{document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelLoser1').value='mike-ertl';document.getElementById('bagelForm').requestSubmit();})()`);
+    assert(await evaluate(`document.getElementById('bagelError').textContent.includes('different player')`));
+    const setsBefore=await evaluate('window.EarlyBirdsStore.getSnapshot().state.bagels.length');
+    await evaluate(`(async()=>{document.getElementById('bagelLoser1').value='akiko';document.getElementById('bagelForm').requestSubmit();document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));})()`);
+    assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().state.bagels.length'),setsBefore+1);
+    assert(await evaluate(`document.getElementById('bagelStatus').textContent.includes('Bagel saved') && document.getElementById('saveBagelButton').hidden && !document.getElementById('existingBagels').hidden`));
+    console.log('Singles double-submit creates one durable set and switches to recorded-set review');
+    await evaluate(`(async()=>{document.getElementById('closeBagelButton').click();document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`document.getElementById('saveBagelButton').hidden && !document.getElementById('anotherBagelButton').hidden`));
+    await evaluate(`(async()=>{
+      document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelLoser1').value='akiko';
+      document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert.equal(await evaluate('window.EarlyBirdsStore.getSnapshot().state.bagels.length'),setsBefore+2);
+    console.log('Explicit additional set permits identical teams with a new record ID');
+    await evaluate(`(async()=>{
+      document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='akiko';document.getElementById('bagelLoser1').value='mike-ertl';
+      window.denySave=true;document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    const deniedSetId=await evaluate('window.EarlyBirdsStore.getRecovery().action.bagel.id');
+    await evaluate(`(async()=>{document.getElementById('closeBagelButton').click();document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`document.getElementById('bagelWinner1').value==='akiko' && document.getElementById('saveBagelButton').textContent==='Retry save'`));
+    await evaluate(`(async()=>{window.denySave=false;document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));})()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.filter(b=>b.id===${JSON.stringify(deniedSetId)}).length===1`));
+    console.log('Rejected Bagel preserves selections across close/reopen and retries the same ID');
+    await evaluate(`(async()=>{
+      document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelLoser1').value='akiko';
+      window.loseAckOnce=true;document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getRecovery().outcome==='uncertain' && document.getElementById('bagelFields').disabled && !document.getElementById('saveBagelButton').disabled && document.getElementById('anotherBagelButton').disabled`));
+    const uncertainSetId=await evaluate('window.EarlyBirdsStore.getRecovery().action.bagel.id');
+    await evaluate(`(async()=>{window.failShared=false;document.getElementById('retrySaveButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.filter(b=>b.id===${JSON.stringify(uncertainSetId)}).length===1 && document.getElementById('bagelStatus').textContent.includes('Bagel saved')`));
+    console.log('Unknown Bagel acknowledgement locks details and global retry confirms one set');
+    await evaluate(`(async()=>{
+      const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.find(c=>c.id==='expiry-future').green=['mike-ertl','akiko','arda','ellen'];window.mockFiles['data/current.json']=JSON.stringify(state);
+      document.getElementById('refreshBagelButton').click();await new Promise(r=>setTimeout(r,100));document.getElementById('anotherBagelButton').click();
+      document.getElementById('bagelFormat').value='doubles';document.getElementById('bagelFormat').dispatchEvent(new Event('change'));
+      document.getElementById('bagelWinner1').value='mike-ertl';document.getElementById('bagelWinner2').value='akiko';document.getElementById('bagelLoser1').value='arda';document.getElementById('bagelLoser2').value='ellen';
+      document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.some(b=>b.sourceCourtId==='expiry-future' && b.winners.length===2 && b.losers.length===2 && b.date==='2026-10-16')`));
+    console.log('Doubles records four distinct green players in equal teams with game date/source');
+    await evaluate(`(async()=>{
+      document.getElementById('closeBagelButton').click();document.getElementById('profileButton').click();document.getElementById('profileAdmin').checked=true;
+      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));document.getElementById('adminTabButton').click();
+      document.getElementById('historicalBagelButton').click();await new Promise(r=>setTimeout(r,100));
+      document.getElementById('bagelDate').value='2026-10-17';
+    })()`);
+    assert(await evaluate(`!document.getElementById('bagelDate').checkValidity()`));
+    await evaluate(`(async()=>{
+      document.getElementById('bagelDate').value='2026-10-14';document.getElementById('bagelDate').dispatchEvent(new Event('change'));
+      document.getElementById('bagelWinner1').value='ellen';document.getElementById('bagelLoser1').value='dimitar';document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,150));
+    })()`);
+    assert(await evaluate(`window.EarlyBirdsStore.getSnapshot().state.bagels.some(b=>b.sourceCourtId===null && b.date==='2026-10-14' && b.winners[0].userId==='ellen' && b.losers[0].userId==='dimitar')`));
+    console.log('Admin historical entry saves a past-date result with registered players and no court');
+    await evaluate(`document.getElementById('anotherBagelButton').click()`);
+    for(const width of [320,390,768,1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<540});
+      assert(await evaluate('document.getElementById("bagelDialog").scrollWidth <= document.getElementById("bagelDialog").clientWidth && document.documentElement.scrollWidth <= window.innerWidth'));
+    }
+    console.log('Complete Bagel reporting form fits phone and desktop widths');
+    if(process.env.TEST_BAGEL_SCREENSHOT_PATH) {
+      await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:1000,deviceScaleFactor:1,mobile:true});
+      const shot=await cdp('Page.captureScreenshot',{format:'png'});
+      await fs.writeFile(process.env.TEST_BAGEL_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+    }
+    await evaluate(`(async()=>{
+      document.getElementById('closeBagelButton').click();document.getElementById('profileButton').click();document.getElementById('profileUser').value='akiko';document.getElementById('profileAdmin').checked=false;
+      document.getElementById('profileForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+      document.querySelector('#gamesList [data-bagel-court="expiry-future"]').click();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    assert(await evaluate(`document.getElementById('bagelFields').hidden && document.getElementById('existingBagelsList').children.length>=5 && !document.getElementById('anotherBagelButton').disabled`));
+    console.log('Another reporter sees existing sets and must explicitly start an additional set');
+    const staleSetWrites=await evaluate('window.mockWriteAttempts');
+    await evaluate(`(async()=>{
+      document.getElementById('anotherBagelButton').click();document.getElementById('bagelWinner1').value='akiko';document.getElementById('bagelLoser1').value='mike-ertl';
+      const state=JSON.parse(window.mockFiles['data/current.json']);state.courts.find(c=>c.id==='expiry-future').green=['mike-ertl','arda','ellen'];state.courts.find(c=>c.id==='expiry-future').reserved=['akiko'];
+      window.mockFiles['data/current.json']=JSON.stringify(state);document.getElementById('bagelForm').requestSubmit();await new Promise(r=>setTimeout(r,100));
+    })()`);
+    assert.equal(await evaluate('window.mockWriteAttempts'),staleSetWrites);
+    assert(await evaluate(`document.getElementById('bagelError').textContent.includes('green player') && document.getElementById('bagelWinner1').value==='akiko'`));
+    await evaluate(`(async()=>{document.getElementById('refreshBagelButton').click();await new Promise(r=>setTimeout(r,100));})()`);
+    assert(await evaluate(`document.getElementById('bagelFields').disabled && document.getElementById('bagelWinner1').value==='akiko' && document.getElementById('bagelEligibility').textContent.includes('no longer eligible')`));
+    console.log('Bagel save rejects newly changed membership without writing or losing selections');
     assert.deepEqual(errors, []);
     console.log('No uncaught browser errors. All checks passed.');
   } finally {

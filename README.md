@@ -28,6 +28,7 @@ There is no dependency installation or build step.
 - `app.js`: application bootstrap;
 - `auth.js`: sign-in, browser sessions, profile and access helpers;
 - `booking.js`: Add Court form, quick dates, draft validation and save/retry integration;
+- `bagels.js`: singles/doubles reporting, Admin historical entry, recorded-set review and save/retry drafts;
 - `games.js`: ordered game cards, booking details and labelled player lists;
 - `model.js`: version 1 validation and replayable data actions;
 - `store.js`: shared reads, queued saves and conflict reconciliation;
@@ -63,8 +64,8 @@ Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API
 Games shows booking cards or an empty state; the other tabs show loaded counts.
 Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
 cards. Tasks 3.3–3.4 add participation controls and action refresh; 3.5 adds court
-editing and deletion. Task 4.1 adds Bagel eligibility/actions; the reporting form
-is task 4.2 and Admin player management is 4.5. Branding artwork and
+editing and deletion. Tasks 4.1–4.2 add Bagel eligibility and reporting; the full
+Bagels list is 4.3 and Admin player management is 4.5. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -108,7 +109,7 @@ lists sit to the right on wider screens and beneath booking details on phones.
 Previous London dates are hidden in Games and Admin; today's finished games stay
 visible until midnight.
 
-## Bagel eligibility (task 4.1)
+## Reporting bagels (tasks 4.1–4.2)
 
 Games shows **Bagel?** only to a signed-in green player once the game's one-hour
 duration has ended, through the end of that London calendar day. Reserves,
@@ -123,10 +124,29 @@ and **Add historical bagel** does not require a live court or green membership.
 Games keeps its ordinary green-player restriction even with Admin mode on.
 Historical entry must use a past/current date; saves enforce the existing rules.
 
-The current dialog confirms eligibility and clearly states that reporting is
-not available yet. Selecting teams and saving the set are task 4.2. This stage's
-entry actions do not create records. The data reducer already revalidates
-ordinary-player membership, time and same-day eligibility on every save.
+Choose **Singles** (one winner/one loser) or **Doubles** (two winners/two losers),
+select a distinct player for each position, then **Save 6–0 set**. Games restricts
+the choices to green players. Singles may use any two, including players who
+continued after doubles. Admin can select any registered players, including
+inactive players for historical results, and choose a past/current date without
+an existing court. Linked entries use the court's date.
+
+Each set saves stable player IDs, name snapshots, game date and its court ID
+(or null for standalone history). Cleanup and renaming do not change that saved
+history. The reducer rechecks membership, timing and team validity against fresh
+shared data, including when an Admin uses the ordinary Games form.
+
+The dialog shows already-recorded sets before enabling an additional submission.
+After saving, choose **Record another 6–0 set** only for a separate set; identical
+teams are allowed for genuinely repeated sets. One ID follows each intended set
+through double clicks, failed saves and unknown acknowledgements. Failed inputs
+survive closing/reopening in the same browser tab. Unknown saves lock the details
+until **Retry save** or the global retry confirms the original set. **Refresh
+game** reviews current eligibility without dropping typed selections. Drafts are
+kept separately by player, Admin mode and source; session changes close the form.
+
+Saved sets are visible in the reporting dialog and reflected in the Bagels count.
+The full styled Bagels list remains task 4.3.
 
 The branding bird was confirmed as a **mistle thrush**; artwork remains task 5.1.
 
@@ -256,7 +276,7 @@ Supported actions for subsequent forms are:
 - `court.patch` with `courtId`, `changes` and matching `expected` original field values;
 - `court.remove` with `courtId`;
 - `participation.set` with `courtId`, optional `userId`, and `status: "green" | "reserved" | "none"`;
-- `bagel.add` with `bagel: { id, sourceCourtId, date, winnerIds, loserIds }`;
+- `bagel.add` with `bagel: { id, sourceCourtId, date, winnerIds, loserIds }` and optional `asPlayer: true` to retain ordinary-player restrictions in Games even in Admin mode;
 - `bagel.remove` with `bagelId`;
 - `courts.cleanup` (removes prior London dates; automatic refresh/write cleanup and local midnight checks are enabled);
 - `user.add` with `user: { id, name, active }`;

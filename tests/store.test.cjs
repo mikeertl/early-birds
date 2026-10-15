@@ -478,3 +478,42 @@ test('Admin can add and edit earlier today for a selected booker, preserving exp
   await assert.rejects(admin.mutate({type:'court.patch',courtId:'missed',expected:{date:booking.date},changes:{date:'2026-10-13'}}),/before today/);
   assert.equal(remote.puts,2);
 });
+test('Bagel singles use any two green players after doubles; invalid teams never write', async () => {
+  const remote=server();remote.documents['data/current.json'].courts=[court('a',{green:['mike-ertl','akiko','arda','ellen'],reserved:['dimitar']})];
+  const {store}=client(remote);
+  const bagel={id:'carried-on',sourceCourtId:'a',date:'2026-10-14',winnerIds:['arda'],loserIds:['ellen']};
+  for(const changes of [
+    {winnerIds:['arda'],loserIds:['arda']},{winnerIds:['arda','akiko'],loserIds:['ellen']},
+    {winnerIds:['arda'],loserIds:['dimitar']},{winnerIds:[],loserIds:[]},
+    {winnerIds:['mike-ertl','akiko','arda'],loserIds:['ellen','dimitar','ivan']},
+  ]) await assert.rejects(store.mutate({type:'bagel.add',asPlayer:true,bagel:{...bagel,...changes}}));
+  assert.equal(remote.puts,0);
+  await store.mutate({type:'bagel.add',asPlayer:true,bagel});
+  const saved=remote.documents['data/current.json'].bagels[0];
+  assert.deepEqual(saved.winners,[{userId:'arda',name:seedUsers.users.find(u=>u.id==='arda').name}]);
+  assert.equal(saved.losers[0].userId,'ellen');assert.equal(saved.sourceCourtId,'a');
+  await store.mutate({type:'bagel.add',asPlayer:true,bagel:{...bagel,id:'another-real-set'}});
+  assert.equal(remote.documents['data/current.json'].bagels.length,2);
+});
+test('Admin Games submissions keep player restrictions; linked Admin entries require the completed source date', async () => {
+  const remote=server();remote.documents['data/current.json'].courts=[court('a',{green:['akiko','arda'],reserved:['mike-ertl']})];
+  const {store}=client(remote,'mike-ertl',true);
+  const bagel={id:'admin-set',sourceCourtId:'a',date:'2026-10-14',winnerIds:['akiko'],loserIds:['arda']};
+  await assert.rejects(store.mutate({type:'bagel.add',asPlayer:true,bagel}),/green player/);
+  await assert.rejects(store.mutate({type:'bagel.add',bagel:{...bagel,date:'2026-10-13'}}),/completed game's date/);
+  await store.mutate({type:'bagel.add',bagel});
+  assert.equal(remote.puts,1);
+});
+test('Historical doubles retain registered inactive names and survive source cleanup and directory rename', async () => {
+  const remote=server();remote.documents['data/users.json'].users.find(u=>u.id==='ellen').active=false;
+  remote.documents['data/users.json'].users.find(u=>u.id==='ellen').name='Ellen 鳥';
+  const {store}=client(remote,'mike-ertl',true);
+  const bagel={id:'historical-doubles',sourceCourtId:null,date:'2026-10-13',winnerIds:['mike-ertl','akiko'],loserIds:['arda','ellen']};
+  await store.mutate({type:'bagel.add',bagel});
+  await store.mutate({type:'user.patch',userId:'ellen',expected:{name:'Ellen 鳥'},changes:{name:'Ellen new'}});
+  await store.mutate({type:'courts.cleanup'});
+  await store.mutate({type:'bagel.add',bagel});
+  const saved=remote.documents['data/current.json'].bagels;
+  assert.equal(saved.length,1);assert.equal(saved[0].losers[1].name,'Ellen 鳥');assert.equal(saved[0].sourceCourtId,null);
+  await assert.rejects(store.mutate({type:'bagel.add',bagel:{...bagel,id:'future',date:'2099-10-15'}}),/future/);
+});

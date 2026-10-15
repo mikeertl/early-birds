@@ -11,40 +11,6 @@
     var activeAction = null;
     var requestedOpenPlace = false;
     var latest = null;
-    var bagelContext = null;
-    var bagelDialog = document.getElementById("bagelDialog");
-    function renderBagelGate() {
-      if (!bagelContext || !latest) return;
-      var court = latest.state.courts.find(function (item) { return item.id === bagelContext.courtId; });
-      var allowed = (!bagelContext.courtId || court) && options.model.canReportBagel(court, auth.getSession(), new Date().toISOString(), bagelContext.fromAdmin);
-      document.getElementById("bagelContext").textContent = court ? "Court " + court.courtNumber + ", " + formatDate(court.date) + " at " + formatTime(court.time) :
-        bagelContext.courtId ? "This game is no longer available." : "Historical entry for a past or current London date, with two or four distinct players.";
-      document.getElementById("bagelEligibility").textContent = bagelContext.checking ? "Checking the latest game and player details…" : bagelContext.error ||
-        (allowed ? "Eligible for a singles or doubles 6–0 set." : "This game is no longer eligible. Players must be green and report after the game ends on the same London day. Admin can use historical entry.");
-      document.getElementById("bagelUnavailable").hidden = bagelContext.checking || Boolean(bagelContext.error) || !allowed;
-    }
-    document.addEventListener("click", async function (event) {
-      var button = event.target.closest("[data-bagel-court]");
-      if (!button || button.disabled || locked()) return;
-      var fromAdmin = button.dataset.bagelAdmin === "true";
-      if (!auth.requireWrite(fromAdmin ? { admin: true } : undefined)) return;
-      var context = { courtId: button.dataset.bagelCourt, fromAdmin: fromAdmin, checking: true };
-      bagelContext = context; renderBagelGate(); bagelDialog.showModal();
-      try { await store.refresh(); }
-      catch (_) { context.error = "Could not check eligibility against shared data. Close this dialog, refresh and try again."; }
-      finally { context.checking = false; if (bagelContext === context) renderBagelGate(); }
-    });
-    document.getElementById("closeBagelButton").addEventListener("click", function () { bagelDialog.close(); });
-    bagelDialog.addEventListener("close", function () {
-      // A queued close event can arrive after another entry has already opened.
-      if (bagelDialog.open) return;
-      var context = bagelContext; bagelContext = null;
-      if (!context) return;
-      var target = Array.from(document.querySelectorAll("[data-bagel-court]")).find(function (button) {
-        return button.dataset.bagelCourt === context.courtId && button.dataset.bagelAdmin === String(context.fromAdmin) && !button.hidden;
-      });
-      (target || document.getElementById(context.fromAdmin ? "adminTabButton" : "gamesTabButton")).focus({ preventScroll: true });
-    });
     function actionMessage(action, data) {
       var court = data.state.courts.find(function (item) { return item.id === action.courtId; });
       if (!court) return "This court no longer exists. Refresh to see the latest games.";
@@ -123,7 +89,6 @@
       updateControls();
     });
     window.addEventListener("early-birds-session-change", function () {
-      bagelDialog.close(); bagelContext = null;
       feedback.clear();
       if (latest) render(latest);
     });
@@ -272,7 +237,7 @@
       document.getElementById("historicalBagelButton").hidden = !actor || !actor.isAdmin;
       document.getElementById("adminAddCourtButton").hidden = !actor || !actor.isAdmin;
       updateControls();
-      renderBagelGate();
+      options.bagels.update(data);
       if (focusTarget && !mutating) focusAction(focusTarget.courtId, focusTarget.status);
       if (bagelFocus) {
         var target = Array.from(document.querySelectorAll("[data-bagel-court]")).find(function (button) { return button.dataset.bagelCourt === bagelFocus.id && button.dataset.bagelAdmin === bagelFocus.admin && !button.hidden; });

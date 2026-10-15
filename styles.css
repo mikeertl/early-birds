@@ -26,6 +26,14 @@
   display: block;
 }
 
+.bagel-team {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 16px 0;
+  padding: 12px;
+  min-width: 0;
+}
+
 body {
   margin: 0;
   background: var(--bg);

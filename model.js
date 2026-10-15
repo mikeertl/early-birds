@@ -165,10 +165,12 @@
           check(date(bagel.date) && bagel.date <= clock.date, "Bagel dates cannot be in the future.");
           var source = next.courts.find(function (item) { return item.id === bagel.sourceCourtId; });
           check(Array.isArray(bagel.winnerIds) && Array.isArray(bagel.loserIds), "Choose the bagel players.");
-          if (!actor.isAdmin) {
+          if (!actor.isAdmin || action.asPlayer === true) {
             check(canReportBagel(source, actor, now, false) && bagel.date === source.date,
             "Bagels must be submitted by a green player after today's game.");
             check(bagel.winnerIds.concat(bagel.loserIds).every(function (id) { return source.green.indexOf(id) >= 0; }), "Choose players from this game's green list.");
+          } else if (bagel.sourceCourtId !== null) {
+            check(source && canReportBagel(source, actor, now, true) && bagel.date === source.date, "Review the completed game's date, or use historical entry without a court.");
           }
           function snapshots(ids) { return ids.map(function (id) {
             var user = directory.users.find(function (item) { return item.id === id; });
