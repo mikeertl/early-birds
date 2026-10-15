@@ -72,8 +72,9 @@ async function main() {
         if (!String(url).startsWith('https://api.github.com/')) {
           if (new URL(url, location.href).pathname.endsWith('/data/current.json')) {
             const data=await(await realFetch(url,options)).json();
-            return new Response(JSON.stringify({...data,courts:[],bagels:[]}));
+            return new Response(JSON.stringify(window.fixtureState || {...data,courts:[],bagels:[]}));
           }
+          if (new URL(url, location.href).pathname.endsWith('/data/users.json') && window.fixtureUsers) return new Response(JSON.stringify(window.fixtureUsers));
           return realFetch(url, options);
         }
         if (String(url).includes('/contents/')) {
@@ -91,7 +92,7 @@ async function main() {
           let data = window.mockFiles[file];
           if (!data) {
             const initial=await(await realFetch(file)).json();
-            data=JSON.stringify(file==='data/current.json'?{...initial,courts:[],bagels:[]}:initial);
+            data=JSON.stringify(file==='data/current.json'?(window.fixtureState||{...initial,courts:[],bagels:[]}):(window.fixtureUsers||initial));
           }
           return new Response(JSON.stringify({ type:'file', encoding:'base64', content:btoa(data), sha:'test-sha' }));
         }
@@ -116,6 +117,15 @@ async function main() {
       const el = id => document.getElementById(id);
       const auth = window.EarlyBirdsAuth;
       const keys = window.EarlyBirdsConfig.storageKeys;
+      function gameFixtures() {
+        const base={durationMinutes:60,createdAt:'2026-10-15T08:00:00Z',createdBy:'mike-ertl',reserved:[]};
+        return [
+          {...base,id:'later',date:'2099-10-15',time:'13:00',courtNumber:3,code:'223344',bookedBy:'arda',green:[]},
+          {...base,id:'simultaneous-b',date:'2099-10-14',time:'08:00',courtNumber:2,code:'654321',bookedBy:'akiko',green:['akiko'],reserved:['mike-ertl']},
+          {...base,id:'simultaneous-a',date:'2099-10-14',time:'08:00',courtNumber:1,code:'012345',bookedBy:'mike-ertl',green:['mike-ertl','ellen'],reserved:['arda']},
+        ];
+      }
+      window.gameFixtures=gameFixtures;
       const wait = () => new Promise(resolve => setTimeout(resolve, 30));
       function check(value, label) { if (!value) throw new Error(label); checks.push(label); }
       async function submit(token, user = 'mike-ertl', admin = false) {
@@ -130,6 +140,22 @@ async function main() {
       el('refreshButton').click(); await wait();
       check(el('dataStatus').textContent.includes('local preview') && !el('refreshButton').disabled, 'visitor refresh uses local preview JSON');
       check(window.EarlyBirdsStore.getSnapshot().users.users.length === 9, 'validated shared snapshot available');
+      window.fixtureState={...window.EarlyBirdsStore.getSnapshot().state,courts:gameFixtures()};
+      window.fixtureUsers=await(await fetch('data/users.json')).json();
+      const literalName='<img src=x onerror="window.nameInjected=true">';
+      window.fixtureUsers.users.find(u=>u.id==='ellen').name=literalName;
+      window.fixtureUsers.users.find(u=>u.id==='ellen').active=false;
+      await window.EarlyBirdsStore.refresh();
+      const cards=[...document.querySelectorAll('.game-card')];
+      check(cards.length===3 && cards.map(c=>c.dataset.courtId).join(',')==='simultaneous-a,simultaneous-b,later', 'cards sort by date/time/court and keep simultaneous courts separate');
+      check(cards[0].querySelector('.game-date').textContent==='Wed 14 Oct 2099' && cards[0].querySelector('time').dateTime==='2099-10-14', 'exact calendar date format and semantic date');
+      check(cards[0].querySelector('.game-time').textContent==='8:00am' && cards[2].querySelector('.game-time').textContent==='1:00pm', '12-hour morning and afternoon time formats');
+      check(cards[0].querySelector('.game-court').textContent==='Court 1' && cards[0].querySelector('.game-booker').textContent==='Mike Ertl', 'court and booker shown');
+      check(cards[0].querySelectorAll('.playing-player').length===2 && cards[0].querySelectorAll('.reserved-player').length===1 && cards[0].textContent.includes('Playing · 2 / 4') && cards[0].textContent.includes('Reserved · 1'), 'playing and reserve names have text-labelled groups');
+      check(cards[2].textContent.includes('Nobody has joined yet.'), 'empty player list explained');
+      check(cards[0].textContent.includes(literalName) && !cards[0].querySelector('img') && !window.nameInjected, 'inactive player names remain readable and markup is literal text');
+      check(cards.every(c=>c.querySelector('.game-code').textContent.includes('Sign in')) && !el('gamesList').outerHTML.includes('012345') && !el('gamesList').outerHTML.includes('654321'), 'visitor cards contain no raw codes in text or attributes');
+      window.fixtureUsers=null;await window.EarlyBirdsStore.refresh();
       localStorage.setItem('longbourn-user-id', 'unrelated');
       const code = document.createElement('span'); document.body.appendChild(code);
       auth.renderCourtCode(code, '012345');
@@ -149,6 +175,9 @@ async function main() {
       await submit('test-valid');
       check(auth.getSession().userId === 'mike-ertl' && !el('profileDialog').open && el('adminTabButton').hidden, 'player sign-in');
       await wait();
+      check(document.querySelector('.game-code').textContent==='*012345', 'signed-in card reveals exactly one star and leading zero');
+      window.fixtureState=null;await window.EarlyBirdsStore.refresh();
+      check(!document.querySelector('.game-card') && el('gamesList').hidden, 'empty refresh removes old cards and restores empty state');
       check(el('dataError').textContent === '' && !el('dataStatus').textContent.includes('local preview'), 'sign-in refreshes GitHub data');
       window.failShared = true; el('refreshButton').click(); await wait();
       check(el('dataError').textContent.includes('could not complete') && window.EarlyBirdsStore.getSnapshot().users.users.length === 9, 'failed refresh preserves last good data and shows error');
@@ -220,7 +249,9 @@ async function main() {
       el('profileButton').click(); await submit('', 'akiko', false);
       check(el('adminTabButton').hidden, 'profile can disable Admin');
       el('profileButton').click(); await submit('test-valid', 'akiko', true);
-      el('adminTabButton').click(); el('signOutButton').click(); await wait();
+      el('adminTabButton').click(); el('signOutButton').click();
+      check([...document.querySelectorAll('.game-code')].every(code=>code.textContent.includes('Sign in')), 'sign-out immediately remasks existing card codes');
+      await wait();
       check(!auth.getSession() && el('adminTabButton').hidden && !el('gamesPanel').hidden, 'sign-out leaves Admin');
       check(localStorage.getItem(keys.token) === 'test-valid' && !localStorage.getItem(keys.userId) && !localStorage.getItem(keys.adminMode), 'sign-out retains token while clearing player/admin');
       check(code.textContent.includes('Sign in') && !code.outerHTML.includes('012345'), 'sign-out remasks code');
@@ -295,6 +326,26 @@ async function main() {
       if (width===390 && process.env.TEST_SCREENSHOT_PATH) {
         const shot=await cdp('Page.captureScreenshot',{format:'png'});
         await fs.writeFile(process.env.TEST_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
+      }
+    }
+    await evaluate(`(async()=>{
+      document.getElementById('closeCourtButton').click();
+      window.fixtureState={...window.EarlyBirdsStore.getSnapshot().state,courts:window.gameFixtures?window.gameFixtures():[
+        {id:'layout-a',date:'2099-10-14',time:'08:00',durationMinutes:60,courtNumber:1,code:'012345',bookedBy:'mike-ertl',green:['mike-ertl','akiko'],reserved:['arda'],createdAt:'2026-10-15T08:00:00Z',createdBy:'mike-ertl'},
+        {id:'layout-b',date:'2099-10-14',time:'08:00',durationMinutes:60,courtNumber:2,code:'654321',bookedBy:'ellen',green:['ellen'],reserved:[],createdAt:'2026-10-15T08:00:00Z',createdBy:'ellen'}
+      ]};
+      await window.EarlyBirdsStore.refresh();
+      document.getElementById('signOutButton').click();await new Promise(r=>setTimeout(r,50));
+      await window.EarlyBirdsStore.refresh();
+    })()`);
+    for (const width of [320, 390, 768, 1280]) {
+      await cdp('Emulation.setDeviceMetricsOverride', {width,height:1000,deviceScaleFactor:1,mobile:width<540});
+      assert(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'));
+      assert(await evaluate(`(()=>{const card=document.querySelector('.game-card');const details=card.querySelector('.game-details').getBoundingClientRect();const players=card.querySelector('.game-players').getBoundingClientRect();return ${width}<620?players.top>=details.bottom:players.left>=details.right;})()`));
+      console.log(`Game cards fit ${width}px; players ${width<620?'below details':'to the right'}`);
+      if (process.env.TEST_GAMES_SCREENSHOT_PATH && width===390) {
+        const shot=await cdp('Page.captureScreenshot',{format:'png'});
+        await fs.writeFile(process.env.TEST_GAMES_SCREENSHOT_PATH,Buffer.from(shot.data,'base64'));
       }
     }
     assert.deepEqual(errors, []);

@@ -154,6 +154,122 @@ h2 {
   gap: 16px;
 }
 
+.game-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8faf9;
+}
+
+.game-details,
+.game-players {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.game-date {
+  margin: 0;
+  font-size: 20px;
+}
+
+.game-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 6px 0 16px;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.game-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.game-facts > div {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.game-facts dt {
+  font-size: 14px;
+}
+
+.game-facts dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.game-code:not(.masked-code) {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+}
+
+.game-players {
+  border-left: 1px solid var(--line);
+  padding-left: 24px;
+}
+
+.player-group + .player-group {
+  margin-top: 16px;
+}
+
+.player-group-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.player-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.player-chip {
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.playing-player {
+  background: var(--green-soft);
+  color: #185334;
+}
+
+.reserved-player {
+  background: var(--yellow-soft);
+  color: #674600;
+}
+
+.player-empty {
+  margin: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 620px) {
+  .game-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .game-players {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding: 16px 0 0;
+  }
+}
+
 .status-line,
 .error-line {
   margin: 12px 0 0;

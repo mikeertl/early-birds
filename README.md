@@ -28,6 +28,7 @@ There is no dependency installation or build step.
 - `app.js`: application bootstrap;
 - `auth.js`: sign-in, browser sessions, profile and access helpers;
 - `booking.js`: Add Court form, quick dates, draft validation and save/retry integration;
+- `games.js`: ordered game cards, booking details and labelled player lists;
 - `model.js`: version 1 validation and replayable data actions;
 - `store.js`: shared reads, queued saves and conflict reconciliation;
 - `data/users.json`: the agreed initial player directory;
@@ -59,9 +60,10 @@ out and remove the token. A signed-out reload keeps the token without restoring
 a player session; it is checked with GitHub again when you next sign in.
 
 Task 2.4 adds validated shared loading, Refresh, and the save/reconciliation API.
-The panels show loaded counts or empty states. Task 3.1 adds the **+ Add Court**
-button and booking form. Game cards, bagel entry and Admin editing controls are
-subsequent tasks. Branding artwork and
+Games shows booking cards or an empty state; the other tabs show loaded counts.
+Task 3.1 adds the **+ Add Court** button and booking form, and 3.2 adds the game
+cards. Participation buttons, bagel entry and Admin editing controls are subsequent
+tasks. Branding artwork and
 install icons are later tasks.
 
 ## Adding a court
@@ -83,7 +85,18 @@ details remain available when closing/reopening the form in the same tab, with a
 stable booking ID for retry. An uncertain save locks details until the same booking
 is reconciled, avoiding duplicate creations. Drafts are kept per player in memory,
 not browser storage, and the form closes when the signed-in player changes.
-Saved bookings currently update the Games count; full cards are task 3.2.
+Saved bookings appear as individual cards in Games, including separate cards for
+simultaneous courts. Cards sort by date, time, court number and ID. Each shows a
+date such as `Wed 14 Oct 2026`, time such as `8:00am`, court, booked-by name and
+the starred code. Visitors see a black sign-in message in place of the code;
+signing out immediately remasks existing cards, including after a failed refresh.
+Raw codes are not inserted into visitor card attributes or hidden elements.
+
+Playing names appear in green and reserves in yellow, with text labels and counts
+for both groups. Current names, including inactive players in existing bookings,
+are resolved from stable user IDs. Names are inserted as text, never HTML. Player
+lists sit to the right on wider screens and beneath booking details on phones.
+Participation controls are task 3.3, and expiry/cleanup is task 3.6.
 
 Task 2.5 adds separate save outcomes and recovery: a pending change is shown as
 saving, a confirmed change as saved, a rejected change as not saved, and a lost
@@ -226,6 +239,9 @@ Add Court checks cover defaults, date shortcuts, court/time limits, star/zero
 handling, duplicate submission, duplicate bookings, booker enrolment, failed and
 uncertain saves, retained drafts and dialog widths from 320px to 1280px. These
 form checks simulate GitHub responses and do not create live bookings.
+Card checks cover ordering, simultaneous bookings, calendar/time formatting,
+player/reserve labels, empty player lists, literal name rendering, inactive names,
+visitor/sign-out code masking and responsive placement at 320/390/768/1280px.
 
 ## Live foundation verification (task 2.6)
 

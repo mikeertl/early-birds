@@ -210,7 +210,7 @@ const server=http.createServer(async(request,response)=>{
     if(request.url.startsWith('/app/') && runConfig) {
       const file=request.url.slice(5)||'index.html';
       if(file===runConfig.usersPath || file===runConfig.statePath){response.setHeader('Content-Type','application/json');response.end(JSON.stringify(file===runConfig.usersPath?runConfig.users:runConfig.state));return;}
-      const allowed=['index.html','styles.css','config.js','auth.js','model.js','store.js','booking.js','app.js','manifest.webmanifest'];
+      const allowed=['index.html','styles.css','config.js','auth.js','model.js','store.js','booking.js','games.js','app.js','manifest.webmanifest'];
       if(!allowed.includes(file)){response.writeHead(404).end();return;}
       let content=await fs.readFile(path.join(root,file),'utf8');
       if(file==='config.js') content+=`\nwindow.EarlyBirdsConfig=Object.freeze({...window.EarlyBirdsConfig,github:Object.freeze(${JSON.stringify({owner:runConfig.owner,repo:runConfig.repo,branch:runConfig.branch,usersPath:runConfig.usersPath,statePath:runConfig.statePath})}),storageKeys:Object.freeze(Object.fromEntries(Object.entries(window.EarlyBirdsConfig.storageKeys).map(([key,value])=>[key,value.replace('early-birds-','early-birds-live-${runConfig.runId}-')])))});`;

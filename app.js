@@ -40,6 +40,7 @@
       isLocal: ["localhost", "127.0.0.1", "[::1]"].indexOf(window.location.hostname) >= 0,
     });
     window.EarlyBirdsStore = store;
+    var games = window.EarlyBirdsGames.init({ auth: auth, config: config, ui: window.EarlyBirdsUI });
     store.subscribe(function (event) {
       var phase = event.status.phase;
       var pending = phase === "loading" || phase === "saving";
@@ -56,7 +57,7 @@
       document.getElementById("retrySaveButton").disabled = pending;
       if (phase === "ready" && event.data) {
         auth.setUsers(event.data.users);
-        showCount("games", event.data.state.courts.length, "booked courts");
+        games.render(event.data);
         showCount("bagels", event.data.state.bagels.length, "recorded sets");
         showCount("admin", event.data.users.users.filter(function (user) { return user.active; }).length, "active players");
       } else if (!event.data) {
