@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T20:27:36.446Z",
+  "updatedAt": "2026-10-16T05:11:31.208Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -19,24 +19,6 @@
       ],
       "reserved": [],
       "createdAt": "2026-10-15T09:28:46.197Z",
-      "createdBy": "mike-ertl"
-    },
-    {
-      "id": "court-2acd3b16-559b-4de5-9067-144ad1b0e0bf",
-      "date": "2026-10-15",
-      "time": "08:00",
-      "courtNumber": 4,
-      "code": "654321",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "dimitar",
-        "ellen",
-        "akiko"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-15T10:59:40.974Z",
       "createdBy": "mike-ertl"
     },
     {
