@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-16T09:53:45.408Z",
+  "updatedAt": "2026-10-16T09:54:13.293Z",
   "updatedBy": "mike-ertl",
   "users": [
     {
@@ -51,6 +51,11 @@
     {
       "id": "player-aad4ca9e-563a-4f99-b4bf-d217dfd93a3f",
       "name": "Alasdair",
+      "active": true
+    },
+    {
+      "id": "player-01f9791d-b964-4c62-83fa-bf9d62d47e0a",
+      "name": "Georgie",
       "active": true
     }
   ]
