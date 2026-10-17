@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-16T17:43:26.075Z",
-  "updatedBy": "arda",
+  "updatedAt": "2026-10-17T06:24:01.907Z",
+  "updatedBy": "dimitar",
   "courts": [
-    {
-      "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
-      "date": "2026-10-16",
-      "time": "08:00",
-      "courtNumber": 5,
-      "code": "476803",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "rob",
-        "susan",
-        "ivan"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-15T09:28:46.197Z",
-      "createdBy": "mike-ertl"
-    },
     {
       "id": "court-582e3da4-a1dc-44b6-b400-9d55905ac6bd",
       "date": "2026-10-19",
