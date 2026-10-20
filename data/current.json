@@ -1,24 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20T06:27:08.887Z",
+  "updatedAt": "2026-10-20T06:28:56.768Z",
   "updatedBy": "mike-ertl",
   "courts": [
-    {
-      "id": "court-2ffe9a9b-4ea1-4cf8-89b5-16cb256e265b",
-      "date": "2026-10-20",
-      "time": "08:00",
-      "courtNumber": 4,
-      "code": "290608",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "arda"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-15T18:52:16.455Z",
-      "createdBy": "mike-ertl"
-    },
     {
       "id": "court-f84c1532-b695-4a6f-bee0-37e0b99c2a67",
       "date": "2026-10-21",
