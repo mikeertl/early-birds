@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-17T06:24:01.907Z",
-  "updatedBy": "dimitar",
+  "updatedAt": "2026-10-20T06:27:08.887Z",
+  "updatedBy": "mike-ertl",
   "courts": [
-    {
-      "id": "court-582e3da4-a1dc-44b6-b400-9d55905ac6bd",
-      "date": "2026-10-19",
-      "time": "08:00",
-      "courtNumber": 6,
-      "code": "443459",
-      "bookedBy": "akiko",
-      "durationMinutes": 60,
-      "green": [
-        "akiko",
-        "mike-ertl",
-        "arda",
-        "dimitar"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-15T16:45:57.479Z",
-      "createdBy": "akiko"
-    },
     {
       "id": "court-2ffe9a9b-4ea1-4cf8-89b5-16cb256e265b",
       "date": "2026-10-20",
