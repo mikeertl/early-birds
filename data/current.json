@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-20T06:28:56.768Z",
-  "updatedBy": "mike-ertl",
+  "updatedAt": "2026-10-21T06:17:26.299Z",
+  "updatedBy": "akiko",
   "courts": [
     {
       "id": "court-f84c1532-b695-4a6f-bee0-37e0b99c2a67",
@@ -18,6 +18,21 @@
       ],
       "reserved": [],
       "createdAt": "2026-10-15T20:22:32.882Z",
+      "createdBy": "akiko"
+    },
+    {
+      "id": "court-6be6ec7d-e48a-41a3-a067-571fa7dd4df3",
+      "date": "2026-10-22",
+      "time": "08:00",
+      "courtNumber": 5,
+      "code": "372252",
+      "bookedBy": "akiko",
+      "durationMinutes": 60,
+      "green": [
+        "akiko"
+      ],
+      "reserved": [],
+      "createdAt": "2026-10-21T06:17:26.299Z",
       "createdBy": "akiko"
     }
   ],
