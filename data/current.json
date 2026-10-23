@@ -1,7 +1,23 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-23T05:52:05.885Z",
+  "updatedAt": "2026-10-23T05:52:18.603Z",
   "updatedBy": "akiko",
-  "courts": [],
+  "courts": [
+    {
+      "id": "court-67ebd625-e4d7-4afa-a789-28d63083fdda",
+      "date": "2026-10-28",
+      "time": "08:00",
+      "courtNumber": 5,
+      "code": "476961",
+      "bookedBy": "akiko",
+      "durationMinutes": 60,
+      "green": [
+        "akiko"
+      ],
+      "reserved": [],
+      "createdAt": "2026-10-23T05:52:18.603Z",
+      "createdBy": "akiko"
+    }
+  ],
   "bagels": []
 }
