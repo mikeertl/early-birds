@@ -1,26 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-21T18:28:08.943Z",
+  "updatedAt": "2026-10-23T05:52:05.885Z",
   "updatedBy": "akiko",
-  "courts": [
-    {
-      "id": "court-6be6ec7d-e48a-41a3-a067-571fa7dd4df3",
-      "date": "2026-10-22",
-      "time": "08:00",
-      "courtNumber": 5,
-      "code": "372252",
-      "bookedBy": "akiko",
-      "durationMinutes": 60,
-      "green": [
-        "akiko",
-        "mike-ertl",
-        "arda",
-        "tim"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-21T06:17:26.299Z",
-      "createdBy": "akiko"
-    }
-  ],
+  "courts": [],
   "bagels": []
 }
