@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-23T13:13:20.901Z",
-  "updatedBy": "arda",
+  "updatedAt": "2026-10-25T16:47:45.509Z",
+  "updatedBy": "mike-ertl",
   "courts": [
     {
       "id": "court-67ebd625-e4d7-4afa-a789-28d63083fdda",
@@ -19,6 +19,21 @@
       "reserved": [],
       "createdAt": "2026-10-23T05:52:18.603Z",
       "createdBy": "akiko"
+    },
+    {
+      "id": "court-6698e826-d4fa-43c3-8877-85c5cb6c5682",
+      "date": "2026-10-29",
+      "time": "08:00",
+      "courtNumber": 5,
+      "code": "519244",
+      "bookedBy": "mike-ertl",
+      "durationMinutes": 60,
+      "green": [
+        "mike-ertl"
+      ],
+      "reserved": [],
+      "createdAt": "2026-10-25T16:47:45.509Z",
+      "createdBy": "mike-ertl"
     }
   ],
   "bagels": []
