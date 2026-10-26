@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-26T19:56:59.097Z",
+  "updatedAt": "2026-10-26T19:57:31.870Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -45,7 +45,8 @@
       "bookedBy": "mike-ertl",
       "durationMinutes": 60,
       "green": [
-        "mike-ertl"
+        "mike-ertl",
+        "susan"
       ],
       "reserved": [],
       "createdAt": "2026-10-26T19:56:59.097Z",
