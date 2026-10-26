@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-26T19:57:31.870Z",
+  "updatedAt": "2026-10-26T19:57:45.386Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -46,7 +46,8 @@
       "durationMinutes": 60,
       "green": [
         "mike-ertl",
-        "susan"
+        "susan",
+        "rob"
       ],
       "reserved": [],
       "createdAt": "2026-10-26T19:56:59.097Z",
