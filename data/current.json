@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-26T20:46:22.035Z",
-  "updatedBy": "mike-ertl",
+  "updatedAt": "2026-10-27T19:11:38.574Z",
+  "updatedBy": "arda",
   "courts": [
     {
       "id": "court-67ebd625-e4d7-4afa-a789-28d63083fdda",
@@ -29,7 +29,8 @@
       "bookedBy": "mike-ertl",
       "durationMinutes": 60,
       "green": [
-        "mike-ertl"
+        "mike-ertl",
+        "arda"
       ],
       "reserved": [],
       "createdAt": "2026-10-25T16:47:45.509Z",
