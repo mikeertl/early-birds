@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-27T19:11:38.574Z",
+  "updatedAt": "2026-10-27T19:11:42.664Z",
   "updatedBy": "arda",
   "courts": [
     {
@@ -13,8 +13,7 @@
       "durationMinutes": 60,
       "green": [
         "akiko",
-        "mike-ertl",
-        "arda"
+        "mike-ertl"
       ],
       "reserved": [],
       "createdAt": "2026-10-23T05:52:18.603Z",
