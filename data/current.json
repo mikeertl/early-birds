@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-29T14:26:09.178Z",
+  "updatedAt": "2026-10-29T14:26:51.347Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -68,6 +68,21 @@
       ],
       "reserved": [],
       "createdAt": "2026-10-29T14:26:09.178Z",
+      "createdBy": "mike-ertl"
+    },
+    {
+      "id": "court-8cc4413c-d499-45e3-9b7f-e068d6f8909a",
+      "date": "2026-11-05",
+      "time": "08:00",
+      "courtNumber": 5,
+      "code": "677510",
+      "bookedBy": "mike-ertl",
+      "durationMinutes": 60,
+      "green": [
+        "mike-ertl"
+      ],
+      "reserved": [],
+      "createdAt": "2026-10-29T14:26:51.347Z",
       "createdBy": "mike-ertl"
     }
   ],
