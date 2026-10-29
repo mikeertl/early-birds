@@ -1,24 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-29T15:04:48.413Z",
-  "updatedBy": "ellen",
+  "updatedAt": "2026-10-29T16:16:36.747Z",
+  "updatedBy": "mike-ertl",
   "courts": [
-    {
-      "id": "court-6698e826-d4fa-43c3-8877-85c5cb6c5682",
-      "date": "2026-10-29",
-      "time": "08:00",
-      "courtNumber": 5,
-      "code": "519244",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "arda"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-25T16:47:45.509Z",
-      "createdBy": "mike-ertl"
-    },
     {
       "id": "court-d87f9c3a-9ef0-4e8c-80a7-84bbfada790e",
       "date": "2026-10-30",
