@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-29T07:06:03.582Z",
-  "updatedBy": "ellen",
+  "updatedAt": "2026-10-29T07:06:14.821Z",
+  "updatedBy": "mike-ertl",
   "courts": [
     {
       "id": "court-6698e826-d4fa-43c3-8877-85c5cb6c5682",
@@ -13,8 +13,7 @@
       "durationMinutes": 60,
       "green": [
         "mike-ertl",
-        "arda",
-        "ellen"
+        "arda"
       ],
       "reserved": [],
       "createdAt": "2026-10-25T16:47:45.509Z",
