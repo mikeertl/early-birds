@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-29T22:34:05.815Z",
-  "updatedBy": "akiko",
+  "updatedAt": "2026-10-30T10:39:40.025Z",
+  "updatedBy": "mike-ertl",
   "courts": [
-    {
-      "id": "court-d87f9c3a-9ef0-4e8c-80a7-84bbfada790e",
-      "date": "2026-10-30",
-      "time": "08:00",
-      "courtNumber": 5,
-      "code": "315604",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "susan",
-        "rob",
-        "ellen"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-26T19:56:59.097Z",
-      "createdBy": "mike-ertl"
-    },
     {
       "id": "court-555ed708-9c99-44e0-8574-ec30cd3eab81",
       "date": "2026-11-04",
