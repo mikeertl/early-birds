@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-02T17:43:06.503Z",
-  "updatedBy": "arda",
+  "updatedAt": "2026-11-03T09:41:43.285Z",
+  "updatedBy": "mike-ertl",
   "courts": [
     {
       "id": "court-555ed708-9c99-44e0-8574-ec30cd3eab81",
@@ -20,22 +20,6 @@
       "reserved": [],
       "createdAt": "2026-10-28T18:13:22.088Z",
       "createdBy": "akiko"
-    },
-    {
-      "id": "court-f3e3ab49-9c63-4a69-a516-2620817c8269",
-      "date": "2026-11-03",
-      "time": "08:00",
-      "courtNumber": 5,
-      "code": "002633",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "ellen"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-29T14:26:09.178Z",
-      "createdBy": "mike-ertl"
     },
     {
       "id": "court-8cc4413c-d499-45e3-9b7f-e068d6f8909a",
