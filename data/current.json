@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-05T07:28:50.183Z",
-  "updatedBy": "susan",
+  "updatedAt": "2026-11-05T10:12:01.731Z",
+  "updatedBy": "mike-ertl",
   "courts": [
     {
       "id": "court-8cc4413c-d499-45e3-9b7f-e068d6f8909a",
@@ -13,7 +13,6 @@
       "durationMinutes": 60,
       "green": [
         "mike-ertl",
-        "arda",
         "akiko",
         "susan"
       ],
