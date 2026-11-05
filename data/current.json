@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-05T15:43:43.228Z",
-  "updatedBy": "mike-ertl",
+  "updatedAt": "2026-11-05T19:48:41.539Z",
+  "updatedBy": "susan",
   "courts": [
     {
       "id": "court-8cc4413c-d499-45e3-9b7f-e068d6f8909a",
@@ -47,7 +47,8 @@
       "durationMinutes": 60,
       "green": [
         "tim",
-        "mike-ertl"
+        "mike-ertl",
+        "susan"
       ],
       "reserved": [],
       "createdAt": "2026-11-05T15:38:21.163Z",
