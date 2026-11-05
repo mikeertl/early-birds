@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-03T09:41:43.285Z",
+  "updatedAt": "2026-11-05T06:07:31.346Z",
   "updatedBy": "mike-ertl",
   "courts": [
-    {
-      "id": "court-555ed708-9c99-44e0-8574-ec30cd3eab81",
-      "date": "2026-11-04",
-      "time": "08:00",
-      "courtNumber": 5,
-      "code": "565409",
-      "bookedBy": "akiko",
-      "durationMinutes": 60,
-      "green": [
-        "akiko",
-        "mike-ertl",
-        "ellen",
-        "arda"
-      ],
-      "reserved": [],
-      "createdAt": "2026-10-28T18:13:22.088Z",
-      "createdBy": "akiko"
-    },
     {
       "id": "court-8cc4413c-d499-45e3-9b7f-e068d6f8909a",
       "date": "2026-11-05",
