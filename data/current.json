@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-06T18:40:08.934Z",
-  "updatedBy": "mike-ertl",
+  "updatedAt": "2026-11-08T11:06:25.190Z",
+  "updatedBy": "akiko",
   "courts": [
     {
       "id": "court-96e0228a-4976-49bc-95df-c8e1ed4f8461",
@@ -34,6 +34,21 @@
       ],
       "reserved": [],
       "createdAt": "2026-11-06T07:48:46.240Z",
+      "createdBy": "akiko"
+    },
+    {
+      "id": "court-b7081d35-8e7b-4963-830b-ac5f6935f0be",
+      "date": "2026-11-12",
+      "time": "08:00",
+      "courtNumber": 4,
+      "code": "463635",
+      "bookedBy": "akiko",
+      "durationMinutes": 60,
+      "green": [
+        "akiko"
+      ],
+      "reserved": [],
+      "createdAt": "2026-11-08T11:06:25.190Z",
       "createdBy": "akiko"
     }
   ],
