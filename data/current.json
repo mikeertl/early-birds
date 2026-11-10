@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-09T09:59:20.556Z",
+  "updatedAt": "2026-11-10T06:34:17.036Z",
   "updatedBy": "mike-ertl",
   "courts": [
-    {
-      "id": "court-96e0228a-4976-49bc-95df-c8e1ed4f8461",
-      "date": "2026-11-09",
-      "time": "08:00",
-      "courtNumber": 6,
-      "code": "169207",
-      "bookedBy": "tim",
-      "durationMinutes": 60,
-      "green": [
-        "tim",
-        "mike-ertl",
-        "susan",
-        "ivan"
-      ],
-      "reserved": [],
-      "createdAt": "2026-11-05T15:38:21.163Z",
-      "createdBy": "tim"
-    },
     {
       "id": "court-00803723-c1ca-47ec-b9a4-b0da73f518dc",
       "date": "2026-11-11",
