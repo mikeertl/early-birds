@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-10T09:37:20.524Z",
+  "updatedAt": "2026-11-10T09:37:39.743Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -34,22 +34,6 @@
       "reserved": [],
       "createdAt": "2026-11-08T11:06:25.190Z",
       "createdBy": "akiko"
-    },
-    {
-      "id": "court-4e37deaf-e4c8-4b59-a193-2fbbb0001214",
-      "date": "2026-11-10",
-      "time": "08:00",
-      "courtNumber": 4,
-      "code": "777441",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "ivan"
-      ],
-      "reserved": [],
-      "createdAt": "2026-11-09T09:56:01.061Z",
-      "createdBy": "mike-ertl"
     }
   ],
   "bagels": [
