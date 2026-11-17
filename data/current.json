@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-16T19:30:54.661Z",
-  "updatedBy": "akiko",
+  "updatedAt": "2026-11-17T01:19:55.253Z",
+  "updatedBy": "arda",
   "courts": [
-    {
-      "id": "court-7900bad3-0587-48eb-9c58-940aacc4d9d8",
-      "date": "2026-11-16",
-      "time": "08:00",
-      "courtNumber": 4,
-      "code": "359784",
-      "bookedBy": "akiko",
-      "durationMinutes": 60,
-      "green": [
-        "akiko",
-        "tim",
-        "mike-ertl",
-        "rob"
-      ],
-      "reserved": [],
-      "createdAt": "2026-11-14T08:51:54.580Z",
-      "createdBy": "akiko"
-    },
     {
       "id": "court-4c2a7eee-03e1-46f6-ad3d-94c7d35adebc",
       "date": "2026-11-17",
