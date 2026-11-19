@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-08T16:41:07.858Z",
+  "updatedAt": "2026-11-19T21:28:04.104Z",
   "updatedBy": "mike-ertl",
   "users": [
     {
@@ -61,6 +61,11 @@
     {
       "id": "player-5761ece3-6bd8-4b04-b74d-085cdf6f24b3",
       "name": "Helene-Mari",
+      "active": true
+    },
+    {
+      "id": "player-82130aed-de09-4161-ad59-0800f370df9d",
+      "name": "Carlos",
       "active": true
     }
   ]
