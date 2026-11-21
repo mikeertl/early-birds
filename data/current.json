@@ -1,44 +1,71 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T16:26:33.321Z",
+  "updatedAt": "2026-11-21T07:10:47.228Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
-      "id": "court-9872f5eb-a498-4ba1-ab8f-4b679f2556ec",
-      "date": "2026-10-16",
+      "id": "court-e46997c2-31ce-4544-9cd7-3e46c08b3fdb",
+      "date": "2026-11-23",
       "time": "08:00",
-      "courtNumber": 5,
-      "code": "476803",
-      "bookedBy": "mike-ertl",
+      "courtNumber": 3,
+      "code": "415863",
+      "bookedBy": "akiko",
       "durationMinutes": 60,
       "green": [
-        "mike-ertl",
-        "rob",
-        "susan",
-        "ivan"
+        "akiko",
+        "mike-ertl"
       ],
       "reserved": [],
-      "createdAt": "2026-10-15T09:28:46.197Z",
+      "createdAt": "2026-11-19T15:52:51.524Z",
+      "createdBy": "akiko"
+    }
+  ],
+  "bagels": [
+    {
+      "id": "bagel-1d6571aa-cd4b-433c-b3f7-47cb535b211f",
+      "sourceCourtId": "court-96e0228a-4976-49bc-95df-c8e1ed4f8461",
+      "date": "2026-11-09",
+      "winners": [
+        {
+          "userId": "susan",
+          "name": "Susan"
+        },
+        {
+          "userId": "mike-ertl",
+          "name": "Mike"
+        }
+      ],
+      "losers": [
+        {
+          "userId": "tim",
+          "name": "Tim"
+        },
+        {
+          "userId": "ivan",
+          "name": "Ivan"
+        }
+      ],
+      "createdAt": "2026-11-09T09:59:20.556Z",
       "createdBy": "mike-ertl"
     },
     {
-      "id": "court-2acd3b16-559b-4de5-9067-144ad1b0e0bf",
-      "date": "2026-10-15",
-      "time": "08:00",
-      "courtNumber": 4,
-      "code": "654321",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "dimitar",
-        "ellen",
-        "akiko"
+      "id": "bagel-4e66f184-7cbc-4ee4-a66f-91af72ce4410",
+      "sourceCourtId": "court-4e37deaf-e4c8-4b59-a193-2fbbb0001214",
+      "date": "2026-11-10",
+      "winners": [
+        {
+          "userId": "mike-ertl",
+          "name": "Mike"
+        }
       ],
-      "reserved": [],
-      "createdAt": "2026-10-15T10:59:40.974Z",
+      "losers": [
+        {
+          "userId": "ivan",
+          "name": "Ivan"
+        }
+      ],
+      "createdAt": "2026-11-10T09:37:20.524Z",
       "createdBy": "mike-ertl"
     }
-  ],
-  "bagels": []
+  ]
 }
