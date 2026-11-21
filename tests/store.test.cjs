@@ -83,7 +83,7 @@ test('locations preserve legacy bookings and allow separate venues while retaini
 test('initial documents validate and reads do not save', async () => {
   const remote=server(); const {store}=client(remote);
   const snapshot=await store.refresh();
-  assert.equal(snapshot.users.users.length, 9); assert.equal(snapshot.state.courts.length,0); assert.equal(remote.puts,0);
+  assert.deepEqual(snapshot.users, seedUsers); assert.equal(snapshot.state.courts.length,0); assert.equal(remote.puts,0);
   snapshot.users.users[0].name='Not shared'; assert.notEqual(store.getSnapshot().users.users[0].name,'Not shared');
 });
 test('local visitor reads local JSON; visitors cannot mutate', async () => {
