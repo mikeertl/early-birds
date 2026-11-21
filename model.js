@@ -41,19 +41,22 @@
       check(!value.updatedBy || known.has(value.updatedBy), "Unknown game-data author.");
       var ids = new Set(), slots = new Set(), places = new Set();
       value.courts.forEach(function (court) {
-        fields(court, ["id", "date", "time", "durationMinutes", "courtNumber", "code", "bookedBy", "green", "reserved", "createdAt", "createdBy"]);
+        fields(court, ["id", "date", "time", "durationMinutes", "courtNumber", "code", "location", "bookedBy", "green", "reserved", "createdAt", "createdBy"]);
         check(text(court.id) && !ids.has(court.id), "Invalid or duplicate court ID."); ids.add(court.id);
         check(date(court.date) && typeof court.time === "string" && /^\d{2}:00$/.test(court.time) &&
           Number(court.time.slice(0, 2)) >= booking.firstStartHour && Number(court.time.slice(0, 2)) <= booking.lastStartHour &&
           court.durationMinutes === booking.durationMinutes, "Invalid court date or time.");
         check(Number.isInteger(court.courtNumber) && court.courtNumber >= booking.firstCourtNumber &&
-          court.courtNumber <= booking.lastCourtNumber && typeof court.code === "string" && /^\d{6}$/.test(court.code), "Invalid court number or code.");
+          court.courtNumber <= booking.lastCourtNumber && typeof court.code === "string" &&
+          (court.location === "nuffield" ? court.code === "" : /^\d{6}$/.test(court.code)), "Invalid court number or code.");
+        check(court.location === undefined || ["alexandra", "nuffield"].indexOf(court.location) >= 0, "Invalid court location.");
         check(known.has(court.bookedBy) && known.has(court.createdBy) && timestamp(court.createdAt), "Invalid booking author.");
         check(Array.isArray(court.green) && Array.isArray(court.reserved) && court.green.length <= booking.capacity, "Invalid court capacity.");
         var members = court.green.concat(court.reserved);
         check(new Set(members).size === members.length && members.every(function (id) { return known.has(id); }), "Invalid or duplicate court player.");
         var slot = court.date + "/" + court.time;
-        check(!slots.has(slot + "/" + court.courtNumber), "That court is already booked at this time."); slots.add(slot + "/" + court.courtNumber);
+        var courtSlot = slot + "/" + (court.location || "alexandra") + "/" + court.courtNumber;
+        check(!slots.has(courtSlot), "That court is already booked at this time."); slots.add(courtSlot);
         court.green.forEach(function (id) {
           check(!places.has(slot + "/" + id), "A player already has an overlapping green place."); places.add(slot + "/" + id);
         });
@@ -106,10 +109,12 @@
       switch (action.type) {
         case "court.add": {
           var input = action.court;
-          fields(input, ["id", "date", "time", "courtNumber", "code", "bookedBy"]);
+          fields(input, ["id", "date", "time", "courtNumber", "code", "location", "bookedBy"]);
           var existing = next.courts.find(function (item) { return item.id === input.id; });
           if (existing) {
-            check(["date", "time", "courtNumber", "code", "bookedBy"].every(function (key) { return existing[key] === input[key]; }), "This booking ID already has different details.");
+            check(["date", "time", "courtNumber", "code", "location", "bookedBy"].every(function (key) {
+              return key === "location" ? (existing[key] || "alexandra") === (input[key] || "alexandra") : existing[key] === input[key];
+            }), "This booking ID already has different details.");
             break;
           }
           check(actor.isAdmin || input.bookedBy === actor.userId, "Only Admin can book for another player."); active(input.bookedBy); bookingDate(input);
@@ -119,11 +124,11 @@
         case "court.patch":
           check(court, "This court no longer exists.");
           owned(court);
-          fields(action.changes, ["date", "time", "courtNumber", "code", "bookedBy"]);
+          fields(action.changes, ["date", "time", "courtNumber", "code", "location", "bookedBy"]);
           Object.keys(action.changes).forEach(function (key) {
             if (key === "bookedBy") { admin(); active(action.changes[key]); }
             check(action.expected && Object.hasOwn(action.expected, key), "Original edit values are required.");
-            check(court[key] === action.expected[key] || court[key] === action.changes[key], "This court was edited by someone else. Refresh and review your change.");
+            check((key === "location" ? court.location || "alexandra" : court[key]) === action.expected[key] || court[key] === action.changes[key], "This court was edited by someone else. Refresh and review your change.");
             court[key] = action.changes[key];
           });
           bookingDate(court); break;
@@ -131,7 +136,7 @@
           if (court) {
             owned(court);
             if (action.expected) Object.keys(action.expected).forEach(function (key) {
-              check(court[key] === action.expected[key], "This court was edited by someone else. Load latest details and confirm deletion again.");
+              check((key === "location" ? court.location || "alexandra" : court[key]) === action.expected[key], "This court was edited by someone else. Load latest details and confirm deletion again.");
             });
             next.courts = next.courts.filter(function (item) { return item.id !== court.id; });
           }

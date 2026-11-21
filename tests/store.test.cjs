@@ -55,6 +55,31 @@ function client(remote, userId='mike-ertl', isAdmin=false, options={}) {
   const store = createStore({config, model, fetch:remote.fetch, getSession:()=>actor, requireWrite:()=>Boolean(actor), now:()=>new Date(now), ...options});
   return {store, setActor(value){actor=value;}};
 }
+test('locations preserve legacy bookings and allow separate venues while retaining player overlap checks', () => {
+  const legacy = court('legacy', {date:'2099-10-15'});
+  const original = {...clone(seedState), courts:[legacy]};
+  assert.deepEqual(model.validateState(original, seedUsers), original);
+  const action = {type:'court.add', court:{id:'nuffield', date:legacy.date, time:legacy.time,
+    courtNumber:legacy.courtNumber, location:'nuffield', code:'', bookedBy:'akiko'}};
+  const actor = {userId:'akiko', isAdmin:false};
+  const added = model.applyState(original, seedUsers, action, actor, now);
+  assert.deepEqual(added.courts[0], legacy);
+  assert.equal(added.courts[1].code, '');
+  assert.deepEqual(model.applyState(added, seedUsers, action, actor, now), added);
+  for (const extra of [{location:'alexandra', code:'012345'}, {location:'unknown'}, {code:'012345'}, {bookedBy:'mike-ertl'}]) {
+    assert.throws(()=>model.applyState(original, seedUsers,
+      {...action, court:{...action.court, ...extra}}, {userId:'mike-ertl', isAdmin:true}, now));
+  }
+  const moved = model.applyState(original, seedUsers, {type:'court.patch', courtId:'legacy',
+    expected:{location:'alexandra', code:'012345'}, changes:{location:'nuffield', code:''}},
+    {userId:'mike-ertl', isAdmin:false}, now);
+  assert.equal(moved.courts[0].location, 'nuffield');
+  assert.throws(()=>model.applyState(moved, seedUsers, {type:'court.patch', courtId:'legacy',
+    expected:{location:'nuffield'}, changes:{location:'alexandra'}}, {userId:'mike-ertl', isAdmin:false}, now));
+  const removed = model.applyState(original, seedUsers, {type:'court.remove', courtId:'legacy',
+    expected:{location:'alexandra'}}, {userId:'mike-ertl', isAdmin:false}, now);
+  assert.equal(removed.courts.length, 0);
+});
 test('initial documents validate and reads do not save', async () => {
   const remote=server(); const {store}=client(remote);
   const snapshot=await store.refresh();

@@ -4,7 +4,7 @@
     var store = options.store, auth = options.auth, model = options.model, config = options.config;
     var el = {}, drafts = new Map(), draft = null, weekOffset = 0;
     ["addCourtButton", "adminAddCourtButton", "courtDialog", "courtForm", "courtFields", "courtBooker", "courtDate", "courtDateHelp", "courtTime", "courtNumber",
-      "courtCode", "courtQuickDates", "thisWeekButton", "nextWeekButton", "courtStatus", "courtError", "saveCourtButton", "closeCourtButton",
+      "courtCode", "courtCodeFields", "courtLocationAlexandra", "courtLocationNuffield", "courtQuickDates", "thisWeekButton", "nextWeekButton", "courtStatus", "courtError", "saveCourtButton", "closeCourtButton",
       "courtTitle", "courtDescription", "courtBookerSelect", "reloadCourtButton"].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
@@ -18,9 +18,16 @@
     function clock() { return model.londonClock(new Date().toISOString()); }
     function dateObject(key) { return new Date(key + "T12:00:00Z"); }
     function shiftDate(key, days) { var value = dateObject(key); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); }
+    function updateLocation() {
+      var needsCode = !el.courtLocationNuffield.checked;
+      el.courtCodeFields.hidden = !needsCode;
+      el.courtCode.required = needsCode;
+      el.courtCode.disabled = !needsCode;
+    }
     function capture() {
       if (!draft) return;
-      draft.values = { date: el.courtDate.value, time: el.courtTime.value, courtNumber: el.courtNumber.value, code: el.courtCode.value };
+      draft.values = { date: el.courtDate.value, time: el.courtTime.value, courtNumber: el.courtNumber.value,
+        code: el.courtLocationNuffield.checked ? "" : el.courtCode.value, location: el.courtLocationNuffield.checked ? "nuffield" : "alexandra" };
       if (draft.mode === "edit" || draft.fromAdmin) draft.values.bookedBy = el.courtBookerSelect.value;
     }
     function intent() {
@@ -34,14 +41,14 @@
         return { type: "court.patch", courtId: draft.id, expected: expected, changes: changes };
       }
       return { type: "court.add", court: { id: draft.id, date: draft.values.date, time: draft.values.time,
-        courtNumber: Number(draft.values.courtNumber), code: draft.values.code, bookedBy: draft.values.bookedBy || draft.userId } };
+        courtNumber: Number(draft.values.courtNumber), code: draft.values.code, location: draft.values.location, bookedBy: draft.values.bookedBy || draft.userId } };
     }
     function isThisAction(action) {
       return draft && action && (draft.mode === "add" ? action.type === "court.add" && action.court.id === draft.id :
         action.courtId === draft.id && action.type === (draft.mode === "edit" ? "court.patch" : "court.remove"));
     }
     function details(court) {
-      return { date: court.date, time: court.time, courtNumber: court.courtNumber, code: court.code, bookedBy: court.bookedBy };
+      return { date: court.date, time: court.time, courtNumber: court.courtNumber, code: court.code, location: court.location || "alexandra", bookedBy: court.bookedBy };
     }
     function renderDates() {
       var today = clock().date;
@@ -94,7 +101,7 @@
       if (!draft) {
         draft = { id: courtId || "court-" + window.crypto.randomUUID(), userId: actor.userId, isAdmin: actor.isAdmin, fromAdmin: Boolean(fromAdmin), mode: mode, key: key,
           original: court ? details(court) : null,
-          values: court ? details(court) : { date: fromAdmin ? clock().date : "", time: config.booking.defaultTime, courtNumber: "", code: "", bookedBy: actor.userId }, pending: false, submitted: false };
+          values: court ? details(court) : { date: fromAdmin ? clock().date : "", time: config.booking.defaultTime, courtNumber: "", code: "", location: "alexandra", bookedBy: actor.userId }, pending: false, submitted: false };
         drafts.set(key, draft);
       }
       displayDraft();
@@ -104,6 +111,9 @@
       el.courtTime.value = draft.values.time;
       el.courtNumber.value = draft.values.courtNumber;
       el.courtCode.value = draft.values.code;
+      el.courtLocationAlexandra.checked = draft.values.location === "alexandra";
+      el.courtLocationNuffield.checked = draft.values.location === "nuffield";
+      updateLocation();
       el.courtTitle.textContent = draft.mode === "delete" ? "Delete court?" : draft.mode === "edit" ? "Edit court" : "Add Court";
       el.courtDescription.textContent = draft.mode === "delete" ? "Delete Court " + draft.original.courtNumber + " on " + draft.original.date + " at " + draft.original.time + "? Its playing and reserve lists will be removed. Recorded bagels will be kept." :
         draft.mode === "edit" ? "Update this booking. " + (draft.fromAdmin ? "Changing the booker does not change who is playing. " : "") + "Load latest details replaces your unsaved edits." :
@@ -190,6 +200,7 @@
     el.courtForm.addEventListener("submit", submit);
     el.courtForm.addEventListener("input", function () {
       if (el.courtCode === document.activeElement) el.courtCode.value = el.courtCode.value.trim().replace(/^\*+/, "");
+      updateLocation();
       capture(); if (draft) { draft.error = ""; renderDraft(); }
     });
     el.courtDate.addEventListener("change", function () { capture(); renderDates(); });

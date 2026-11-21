@@ -310,7 +310,13 @@ Bookers see **Edit court** and **Delete court** on their own Games cards.
 The **Admin** tab lists all courts with management controls, including changing
 booked-by. Games keeps the booker fixed even when the player has Admin mode on.
 Editing prefills the existing details and uses the same
-date, hourly time, court-number and six-digit code validation as adding a court.
+date, hourly time, court-number and location validation as adding a court.
+Location defaults to **Alexandra Courts**, which requires a six-digit access code.
+**Nuffield Health** hides the code input and saves an empty code. Games and Admin
+cards show the location beside the time and court number, and only Alexandra
+bookings show a code. Existing bookings without a location are treated as
+Alexandra Courts without rewriting their data. Duplicate court/time checks apply
+within each location; player overlap checks still apply across both locations.
 Only Admin can change booked-by, choosing an active player. Changing ownership
 preserves the current playing/reserve lists; it does not enrol the new booker.
 Moving a booking checks every green player's other games and rejects overlaps.
@@ -405,7 +411,7 @@ is not offered for replay.
 
 Supported actions for subsequent forms are:
 
-- `court.add` with `court: { id, date, time, courtNumber, code, bookedBy }`;
+- `court.add` with `court: { id, date, time, courtNumber, location, code, bookedBy }`; `location` is `"alexandra"` (the default when omitted) or `"nuffield"`, with an empty `code` for Nuffield;
 - `court.patch` with `courtId`, `changes` and matching `expected` original field values;
 - `court.remove` with `courtId`;
 - `participation.set` with `courtId`, optional `userId`, and `status: "green" | "reserved" | "none"`; Admin controls also set `asAdmin: true`, requiring Admin even when changing their own place;

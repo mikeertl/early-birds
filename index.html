@@ -243,9 +243,16 @@
               <div><label for="courtNumber">Court</label><select id="courtNumber" required><option value="">Choose court</option></select></div>
             </div>
             <p class="field-help">One hour. All dates and times are Europe/London.</p>
-            <label for="courtCode">Access code</label>
-            <div class="code-input"><span aria-hidden="true">*</span><input id="courtCode" type="text" inputmode="numeric" pattern="[0-9]{6}" required autocomplete="off" aria-describedby="courtCodeHelp" /></div>
-            <p id="courtCodeHelp" class="field-help">Enter six digits. The leading * is added automatically.</p>
+            <fieldset class="court-locations">
+              <legend>Location</legend>
+              <label><input id="courtLocationAlexandra" type="radio" name="courtLocation" value="alexandra" checked /> Alexandra Courts</label>
+              <label><input id="courtLocationNuffield" type="radio" name="courtLocation" value="nuffield" /> Nuffield Health</label>
+            </fieldset>
+            <div id="courtCodeFields">
+              <label for="courtCode">Access code</label>
+              <div class="code-input"><span aria-hidden="true">*</span><input id="courtCode" type="text" inputmode="numeric" pattern="[0-9]{6}" required autocomplete="off" aria-describedby="courtCodeHelp" /></div>
+              <p id="courtCodeHelp" class="field-help">Enter six digits. The leading * is added automatically.</p>
+            </div>
           </fieldset>
           <p id="courtStatus" class="status-line" role="status" aria-atomic="true"></p>
           <p id="courtError" class="error-line" role="alert" aria-atomic="true"></p>
@@ -286,7 +293,7 @@
           </div>
         </form>
       </dialog>
-      <footer class="app-footer">Version <span id="appVersion">2026.10.14.1</span></footer>
+      <footer class="app-footer">Version <span id="appVersion">2026.11.21.1</span></footer>
     </div>
   </body>
 </html>

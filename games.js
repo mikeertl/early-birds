@@ -249,7 +249,8 @@
         date.dateTime = court.date;
         heading.appendChild(date);
         var meta = element("p", "game-meta");
-        meta.append(element("span", "game-time", formatTime(court.time)), element("span", "game-court", "Court " + court.courtNumber));
+        meta.append(element("span", "game-time", formatTime(court.time)), element("span", "game-court", "Court " + court.courtNumber),
+          element("span", "game-location", court.location === "nuffield" ? "Nuffield Health" : "Alexandra Courts"));
         var facts = element("dl", "game-facts");
         var booker = element("div");
         booker.append(element("dt", "", "Booked by"), element("dd", "game-booker", name(court.bookedBy)));
@@ -257,7 +258,8 @@
         var code = element("span", "game-code");
         var codeValue = element("dd"); codeValue.appendChild(code);
         access.append(element("dt", "", "Code"), codeValue);
-        facts.append(booker, access);
+        facts.appendChild(booker);
+        if (court.location !== "nuffield") facts.appendChild(access);
         details.append(heading, meta, facts);
         var manager = auth.getSession();
         if (manager && court.bookedBy === manager.userId) details.appendChild(managementActions(court));
@@ -271,7 +273,7 @@
           adminDetails.appendChild(managementActions(court));
           if (options.model.canReportBagel(court, manager, new Date().toISOString(), true)) adminDetails.querySelector(".game-actions").appendChild(bagelButton(court, true));
           adminCard.append(adminDetails, adminPlayers(court, index, data, courts)); adminList.appendChild(adminCard);
-          auth.renderCourtCode(adminDetails.querySelector(".game-code"), court.code);
+          if (court.location !== "nuffield") auth.renderCourtCode(adminDetails.querySelector(".game-code"), court.code);
         }
         var players = element("div", "game-players");
         var playing = element("section", "player-group");
@@ -323,7 +325,7 @@
         errorLine.setAttribute("role", "alert"); errorLine.setAttribute("aria-atomic", "true");
         players.append(statusLine, errorLine);
         card.append(details, players); list.appendChild(card);
-        auth.renderCourtCode(code, court.code);
+        if (court.location !== "nuffield") auth.renderCourtCode(code, court.code);
       });
       options.ui.setPanelState("games", courts.length ? "ready" : "empty");
       var actor = auth.getSession();

@@ -123,6 +123,28 @@ async function main() {
     await until(pages[winner],"!document.getElementById('refreshButton').disabled && document.getElementById('retrySaveButton').hidden");
     await refresh(pages[reserve]);
     check(await pages[reserve].evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='${first}').reserved.includes('${winner}')`),'Retry reaches shared data and is visible in the other session');
+    await pages.akiko.evaluate(`document.getElementById('addCourtButton').click()`);
+    check(await pages.akiko.evaluate(`document.getElementById('courtLocationAlexandra').checked && document.getElementById('courtCode').required && !document.getElementById('courtCodeFields').hidden`),'New bookings default to Alexandra Courts with a required code');
+    await pages.akiko.evaluate(`(()=>{
+      document.getElementById('courtDate').value='2099-10-16';
+      document.getElementById('courtNumber').value='1';
+      document.getElementById('courtLocationNuffield').click();
+    })()`);
+    check(await pages.akiko.evaluate(`document.getElementById('courtCodeFields').hidden && !document.getElementById('courtCode').required && document.getElementById('courtCode').disabled`),'Nuffield selection hides the code and removes its validation');
+    await pages.akiko.evaluate(`document.getElementById('courtForm').requestSubmit()`);
+    await until(pages.akiko, "!document.getElementById('courtDialog').open && !document.getElementById('refreshButton').disabled");
+    const nuffield=files['data/current.json'].courts.find(c=>c.location==='nuffield');
+    check(nuffield && nuffield.code==='' && await pages.akiko.evaluate(`(()=>{
+      const card=document.querySelector('#gamesList [data-court-id="${nuffield.id}"]');
+      return card.querySelector('.game-meta').textContent.includes('Nuffield Health') && !card.querySelector('.game-code');
+    })()`),'Nuffield saves without a code and shows its location beside time and court');
+    await pages.akiko.evaluate(`document.querySelector('#gamesList [data-court-id="${nuffield.id}"] [data-court-management="edit"]').click()`);
+    check(await pages.akiko.evaluate(`document.getElementById('courtLocationNuffield').checked && document.getElementById('courtCodeFields').hidden`),'Editing a Nuffield booking restores its location');
+    await pages.akiko.evaluate(`document.getElementById('courtLocationAlexandra').click()`);
+    check(await pages.akiko.evaluate(`document.getElementById('courtCode').required && !document.getElementById('courtForm').checkValidity()`),'Changing to Alexandra requires a code again');
+    await pages.akiko.evaluate(`document.getElementById('courtCode').value='123456';document.getElementById('courtForm').requestSubmit()`);
+    await until(pages.akiko, "!document.getElementById('courtDialog').open && !document.getElementById('refreshButton').disabled");
+    check(court(nuffield.id).location==='alexandra' && court(nuffield.id).code==='123456','Location edits save with the appropriate access code');
     for(const [id,page] of Object.entries(pages)) {
       check(await page.evaluate(`window.EarlyBirdsAuth.getSession().userId==='${id}' && window.browserErrors.length===0`),'Independent identity retained without browser errors: '+id);
     }
