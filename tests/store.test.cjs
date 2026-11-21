@@ -66,7 +66,7 @@ test('locations preserve legacy bookings and allow separate venues while retaini
   assert.deepEqual(added.courts[0], legacy);
   assert.equal(added.courts[1].code, '');
   assert.deepEqual(model.applyState(added, seedUsers, action, actor, now), added);
-  for (const extra of [{location:'alexandra', code:'012345'}, {location:'unknown'}, {code:'012345'}, {bookedBy:'mike-ertl'}]) {
+  for (const extra of [{location:'alexandra', code:'012345'}, {location:'unknown'}, {code:'012345'}, {bookedBy:'mike-ertl'}, {courtNumber:5}, {courtNumber:6}]) {
     assert.throws(()=>model.applyState(original, seedUsers,
       {...action, court:{...action.court, ...extra}}, {userId:'mike-ertl', isAdmin:true}, now));
   }
@@ -79,6 +79,20 @@ test('locations preserve legacy bookings and allow separate venues while retaini
   const removed = model.applyState(original, seedUsers, {type:'court.remove', courtId:'legacy',
     expected:{location:'alexandra'}}, {userId:'mike-ertl', isAdmin:false}, now);
   assert.equal(removed.courts.length, 0);
+});
+test('court limits allow Nuffield court 4 and Alexandra court 6, including location edits', () => {
+  const original = {...clone(seedState), courts:[]};
+  const actor = {userId:'mike-ertl', isAdmin:false};
+  const action = {type:'court.add', court:{id:'limit', date:'2099-10-15', time:'08:00',
+    courtNumber:4, location:'nuffield', code:'', bookedBy:actor.userId}};
+  assert.equal(model.applyState(original, seedUsers, action, actor, now).courts[0].courtNumber, 4);
+  const alexandra = model.applyState(original, seedUsers,
+    {...action, court:{...action.court, courtNumber:6, location:'alexandra', code:'012345'}}, actor, now);
+  const move = {type:'court.patch', courtId:'limit', expected:{location:'alexandra', code:'012345'},
+    changes:{location:'nuffield', code:''}};
+  assert.throws(()=>model.applyState(alexandra, seedUsers, move, actor, now), /court number/);
+  assert.equal(model.applyState(alexandra, seedUsers, {...move, expected:{...move.expected, courtNumber:6},
+    changes:{...move.changes, courtNumber:4}}, actor, now).courts[0].courtNumber, 4);
 });
 test('initial documents validate and reads do not save', async () => {
   const remote=server(); const {store}=client(remote);

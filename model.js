@@ -47,7 +47,7 @@
           Number(court.time.slice(0, 2)) >= booking.firstStartHour && Number(court.time.slice(0, 2)) <= booking.lastStartHour &&
           court.durationMinutes === booking.durationMinutes, "Invalid court date or time.");
         check(Number.isInteger(court.courtNumber) && court.courtNumber >= booking.firstCourtNumber &&
-          court.courtNumber <= booking.lastCourtNumber && typeof court.code === "string" &&
+          court.courtNumber <= (court.location === "nuffield" ? booking.nuffieldLastCourtNumber : booking.lastCourtNumber) && typeof court.code === "string" &&
           (court.location === "nuffield" ? court.code === "" : /^\d{6}$/.test(court.code)), "Invalid court number or code.");
         check(court.location === undefined || ["alexandra", "nuffield"].indexOf(court.location) >= 0, "Invalid court location.");
         check(known.has(court.bookedBy) && known.has(court.createdBy) && timestamp(court.createdAt), "Invalid booking author.");

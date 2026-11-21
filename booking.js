@@ -20,6 +20,15 @@
     function shiftDate(key, days) { var value = dateObject(key); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); }
     function updateLocation() {
       var needsCode = !el.courtLocationNuffield.checked;
+      var lastCourt = needsCode ? config.booking.lastCourtNumber : config.booking.nuffieldLastCourtNumber;
+      if (el.courtNumber.options.length !== lastCourt - config.booking.firstCourtNumber + 2) {
+        var selected = el.courtNumber.value;
+        el.courtNumber.replaceChildren(new Option("Choose court", ""));
+        for (var number = config.booking.firstCourtNumber; number <= lastCourt; number += 1) {
+          el.courtNumber.add(new Option("Court " + number, String(number)));
+        }
+        el.courtNumber.value = Number(selected) <= lastCourt ? selected : "";
+      }
       el.courtCodeFields.hidden = !needsCode;
       el.courtCode.required = needsCode;
       el.courtCode.disabled = !needsCode;
@@ -109,11 +118,11 @@
     function displayDraft() {
       el.courtDate.value = draft.values.date;
       el.courtTime.value = draft.values.time;
-      el.courtNumber.value = draft.values.courtNumber;
       el.courtCode.value = draft.values.code;
       el.courtLocationAlexandra.checked = draft.values.location === "alexandra";
       el.courtLocationNuffield.checked = draft.values.location === "nuffield";
       updateLocation();
+      el.courtNumber.value = draft.values.courtNumber;
       el.courtTitle.textContent = draft.mode === "delete" ? "Delete court?" : draft.mode === "edit" ? "Edit court" : "Add Court";
       el.courtDescription.textContent = draft.mode === "delete" ? "Delete Court " + draft.original.courtNumber + " on " + draft.original.date + " at " + draft.original.time + "? Its playing and reserve lists will be removed. Recorded bagels will be kept." :
         draft.mode === "edit" ? "Update this booking. " + (draft.fromAdmin ? "Changing the booker does not change who is playing. " : "") + "Load latest details replaces your unsaved edits." :

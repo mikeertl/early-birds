@@ -312,7 +312,9 @@ booked-by. Games keeps the booker fixed even when the player has Admin mode on.
 Editing prefills the existing details and uses the same
 date, hourly time, court-number and location validation as adding a court.
 Location defaults to **Alexandra Courts**, which requires a six-digit access code.
-**Nuffield Health** hides the code input and saves an empty code. Games and Admin
+**Nuffield Health** offers courts 1–4, hides the code input and saves an empty code.
+Alexandra Courts offers courts 1–6. Switching from court 5 or 6 to Nuffield clears
+the court selection so a valid court must be chosen. Games and Admin
 cards show the location beside the time and court number, and only Alexandra
 bookings show a code. Existing bookings without a location are treated as
 Alexandra Courts without rewriting their data. Duplicate court/time checks apply

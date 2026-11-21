@@ -125,6 +125,10 @@ async function main() {
     check(await pages[reserve].evaluate(`window.EarlyBirdsStore.getSnapshot().state.courts.find(c=>c.id==='${first}').reserved.includes('${winner}')`),'Retry reaches shared data and is visible in the other session');
     await pages.akiko.evaluate(`document.getElementById('addCourtButton').click()`);
     check(await pages.akiko.evaluate(`document.getElementById('courtLocationAlexandra').checked && document.getElementById('courtCode').required && !document.getElementById('courtCodeFields').hidden`),'New bookings default to Alexandra Courts with a required code');
+    await pages.akiko.evaluate(`document.getElementById('courtNumber').value='6';document.getElementById('courtLocationNuffield').click()`);
+    check(await pages.akiko.evaluate(`document.getElementById('courtNumber').value==='' && Array.from(document.getElementById('courtNumber').options).map(o=>o.value).join(',')===',1,2,3,4'`),'Nuffield offers only courts 1–4 and clears an Alexandra court 6 selection');
+    await pages.akiko.evaluate(`document.getElementById('courtLocationAlexandra').click();document.getElementById('courtNumber').value='4';document.getElementById('courtLocationNuffield').click()`);
+    check(await pages.akiko.evaluate(`document.getElementById('courtNumber').value==='4'`),'Switching locations preserves a valid court selection');
     await pages.akiko.evaluate(`(()=>{
       document.getElementById('courtDate').value='2099-10-16';
       document.getElementById('courtNumber').value='1';
@@ -141,6 +145,7 @@ async function main() {
     await pages.akiko.evaluate(`document.querySelector('#gamesList [data-court-id="${nuffield.id}"] [data-court-management="edit"]').click()`);
     check(await pages.akiko.evaluate(`document.getElementById('courtLocationNuffield').checked && document.getElementById('courtCodeFields').hidden`),'Editing a Nuffield booking restores its location');
     await pages.akiko.evaluate(`document.getElementById('courtLocationAlexandra').click()`);
+    check(await pages.akiko.evaluate(`Array.from(document.getElementById('courtNumber').options).map(o=>o.value).join(',')===',1,2,3,4,5,6' && document.getElementById('courtNumber').value==='1'`),'Editing back to Alexandra restores courts 1–6 and keeps the selected valid court');
     check(await pages.akiko.evaluate(`document.getElementById('courtCode').required && !document.getElementById('courtForm').checkValidity()`),'Changing to Alexandra requires a code again');
     await pages.akiko.evaluate(`document.getElementById('courtCode').value='123456';document.getElementById('courtForm').requestSubmit()`);
     await until(pages.akiko, "!document.getElementById('courtDialog').open && !document.getElementById('refreshButton').disabled");
