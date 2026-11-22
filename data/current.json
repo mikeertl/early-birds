@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-21T17:06:45.450Z",
+  "updatedAt": "2026-11-22T16:33:17.034Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -18,6 +18,22 @@
       "reserved": [],
       "createdAt": "2026-11-19T15:52:51.524Z",
       "createdBy": "akiko"
+    },
+    {
+      "id": "court-f12c5159-7369-4b61-aa86-2de0958f51d7",
+      "date": "2026-11-26",
+      "time": "08:00",
+      "courtNumber": 3,
+      "code": "",
+      "location": "nuffield",
+      "bookedBy": "mike-ertl",
+      "durationMinutes": 60,
+      "green": [
+        "mike-ertl"
+      ],
+      "reserved": [],
+      "createdAt": "2026-11-22T16:33:17.034Z",
+      "createdBy": "mike-ertl"
     }
   ],
   "bagels": [
