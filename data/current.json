@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-23T14:53:45.077Z",
-  "updatedBy": "dimitar",
+  "updatedAt": "2026-11-23T16:12:55.773Z",
+  "updatedBy": "akiko",
   "courts": [
     {
       "id": "court-e46997c2-31ce-4544-9cd7-3e46c08b3fdb",
@@ -73,6 +73,22 @@
       "reserved": [],
       "createdAt": "2026-11-23T12:24:30.564Z",
       "createdBy": "mike-ertl"
+    },
+    {
+      "id": "court-7bac27f8-2001-4515-95f5-bb95de4dfb8d",
+      "date": "2026-11-30",
+      "time": "08:00",
+      "courtNumber": 5,
+      "code": "147640",
+      "location": "alexandra",
+      "bookedBy": "akiko",
+      "durationMinutes": 60,
+      "green": [
+        "akiko"
+      ],
+      "reserved": [],
+      "createdAt": "2026-11-23T16:12:55.773Z",
+      "createdBy": "akiko"
     }
   ],
   "bagels": [
