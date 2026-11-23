@@ -4,7 +4,7 @@
   // Public configuration only. Tokens must never be added to this file.
   window.EarlyBirdsConfig = Object.freeze({
     appName: "Early Birds Tennis",
-    appVersion: "2026.11.21.2",
+    appVersion: "2026.11.23.1",
     schemaVersion: 1,
     github: Object.freeze({
       owner: "mikeertl",

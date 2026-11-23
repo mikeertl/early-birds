@@ -123,7 +123,7 @@ async function main() {
     const url = process.env.TEST_URL || 'http://127.0.0.1:8000/';
     await cdp('Page.navigate', { url });
     for (let n = 0; n < 100; n++) {
-      if (await evaluate('Boolean(window.EarlyBirdsUI && document.getElementById("profileUser").options.length === 10)')) break;
+      if (await evaluate('Boolean(window.EarlyBirdsUI && window.EarlyBirdsStore?.getSnapshot() && document.getElementById("profileUser").options.length === window.EarlyBirdsStore.getSnapshot().users.users.filter(u=>u.active).length + 1)')) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert(await evaluate(`document.getElementById('userMenu').hidden && document.getElementById('menuButton').getAttribute('aria-expanded')==='false'`));
@@ -214,10 +214,11 @@ async function main() {
         await wait();
       }
       check(auth.getSession() === null && el('adminTabButton').hidden, 'visitor access');
-      check(el('profileUser').options.length === 10, 'nine agreed players loaded');
+      window.initialPlayerCount=window.EarlyBirdsStore.getSnapshot().users.users.length;
+      check(el('profileUser').options.length === window.EarlyBirdsStore.getSnapshot().users.users.filter(u=>u.active).length + 1, 'current active player directory loaded');
       el('refreshButton').click(); await wait();
       check(el('dataStatus').textContent.includes('local preview') && !el('refreshButton').disabled, 'visitor refresh uses local preview JSON');
-      check(window.EarlyBirdsStore.getSnapshot().users.users.length === 9, 'validated shared snapshot available');
+      check(window.EarlyBirdsStore.getSnapshot().users.users.length === window.initialPlayerCount, 'validated shared snapshot available');
       window.fixtureState={...window.EarlyBirdsStore.getSnapshot().state,courts:gameFixtures()};
       window.fixtureUsers=await(await fetch('data/users.json')).json();
       const literalName='<img src=x onerror="window.nameInjected=true">';
@@ -379,7 +380,7 @@ async function main() {
       check(!document.querySelector('.game-card') && el('gamesList').hidden, 'empty refresh removes old cards and restores empty state');
       check(el('dataError').textContent === '' && !el('dataStatus').textContent.includes('local preview'), 'sign-in refreshes GitHub data');
       window.failShared = true; el('refreshButton').click(); await wait();
-      check(el('dataError').textContent.includes('could not complete') && window.EarlyBirdsStore.getSnapshot().users.users.length === 9, 'failed refresh preserves last good data and shows error');
+      check(el('dataError').textContent.includes('could not complete') && window.EarlyBirdsStore.getSnapshot().users.users.length === window.initialPlayerCount, 'failed refresh preserves last good data and shows error');
       check(!el('staleNotice').hidden, 'failed refresh labels old data as stale');
       window.failShared = false; el('refreshButton').click(); await wait();
       check(el('dataError').textContent === '' && el('dataStatus').textContent.includes('refreshed'), 'refresh retry recovers');
@@ -500,7 +501,7 @@ async function main() {
     console.log('Cross-tab sign-out clears active session');
     await cdp('Page.reload');
     for (let n = 0; n < 100; n++) {
-      if (await evaluate('Boolean(window.EarlyBirdsAuth && document.getElementById("profileUser").options.length === 10)')) break;
+      if (await evaluate('Boolean(window.EarlyBirdsAuth && window.EarlyBirdsStore?.getSnapshot() && document.getElementById("profileUser").options.length === window.EarlyBirdsStore.getSnapshot().users.users.filter(u=>u.active).length + 1)')) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert.equal(await evaluate('window.EarlyBirdsAuth.getSession()'), null);
@@ -859,7 +860,7 @@ async function main() {
       document.getElementById('signInButton').click();document.getElementById('profileUser').value='mike-ertl';document.getElementById('profileAdmin').checked=true;
       document.getElementById('profileForm').requestSubmit();await window.waitForSharedIdle();document.getElementById('adminTabButton').click();
     })()`);
-    assert(await evaluate(`window.EarlyBirdsAuth.getSession().isAdmin && document.getElementById('adminPlayersList').children.length===9 && !document.getElementById('addPlayerButton').hidden`));
+    assert(await evaluate(`window.EarlyBirdsAuth.getSession().isAdmin && document.getElementById('adminPlayersList').children.length===window.EarlyBirdsStore.getSnapshot().users.users.length && !document.getElementById('addPlayerButton').hidden`));
     console.log('Initial active player can choose Admin and manage active/inactive users; visitors have no controls');
     assert(await evaluate(`!document.getElementById('adminPlayersDetails').open && document.getElementById('adminPlayersTitle').textContent.includes('active players')`));
     await evaluate(`document.getElementById('adminPlayersTitle').click()`);

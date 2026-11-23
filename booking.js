@@ -8,10 +8,6 @@
       "courtTitle", "courtDescription", "courtBookerSelect", "reloadCourtButton"].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
-    for (var hour = config.booking.firstStartHour; hour <= config.booking.lastStartHour; hour += 1) {
-      var time = String(hour).padStart(2, "0") + ":00";
-      el.courtTime.add(new Option((hour % 12 || 12) + ":00" + (hour < 12 ? "am" : "pm"), time));
-    }
     for (var number = config.booking.firstCourtNumber; number <= config.booking.lastCourtNumber; number += 1) {
       el.courtNumber.add(new Option("Court " + number, String(number)));
     }
@@ -28,6 +24,17 @@
           el.courtNumber.add(new Option("Court " + number, String(number)));
         }
         el.courtNumber.value = Number(selected) <= lastCourt ? selected : "";
+      }
+      var selectedTime = el.courtTime.value;
+      var step = needsCode ? 60 : 30;
+      var count = (config.booking.lastStartHour - config.booking.firstStartHour) * 60 / step + 1;
+      if (el.courtTime.options.length !== count) {
+        el.courtTime.replaceChildren();
+        for (var minutes = config.booking.firstStartHour * 60; minutes <= config.booking.lastStartHour * 60; minutes += step) {
+          var hour = Math.floor(minutes / 60), minute = String(minutes % 60).padStart(2, "0");
+          el.courtTime.add(new Option((hour % 12 || 12) + ":" + minute + (hour < 12 ? "am" : "pm"), String(hour).padStart(2, "0") + ":" + minute));
+        }
+        el.courtTime.value = selectedTime;
       }
       el.courtCodeFields.hidden = !needsCode;
       el.courtCode.required = needsCode;
@@ -117,11 +124,11 @@
     }
     function displayDraft() {
       el.courtDate.value = draft.values.date;
-      el.courtTime.value = draft.values.time;
       el.courtCode.value = draft.values.code;
       el.courtLocationAlexandra.checked = draft.values.location === "alexandra";
       el.courtLocationNuffield.checked = draft.values.location === "nuffield";
       updateLocation();
+      el.courtTime.value = draft.values.time;
       el.courtNumber.value = draft.values.courtNumber;
       el.courtTitle.textContent = draft.mode === "delete" ? "Delete court?" : draft.mode === "edit" ? "Edit court" : "Add Court";
       el.courtDescription.textContent = draft.mode === "delete" ? "Delete Court " + draft.original.courtNumber + " on " + draft.original.date + " at " + draft.original.time + "? Its playing and reserve lists will be removed. Recorded bagels will be kept." :
@@ -165,7 +172,7 @@
       if (!retrying) {
         if (draft.mode !== "delete" && !el.courtForm.reportValidity()) return;
         var today = clock();
-        if (draft.mode !== "delete" && (draft.values.date < today.date || (!draft.fromAdmin && draft.values.date === today.date && Number(draft.values.time.slice(0, 2)) * 60 <= today.minutes))) {
+        if (draft.mode !== "delete" && (draft.values.date < today.date || (!draft.fromAdmin && draft.values.date === today.date && model.startMinutes(draft.values.time) <= today.minutes))) {
           draft.error = "Choose a start time in the future (Europe/London).";
           renderDraft(); el.courtDate.focus(); return;
         }

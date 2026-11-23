@@ -152,7 +152,7 @@
       var users = new Map(data.users.users.map(function (user) { return [user.id, user]; }));
       var full = court.green.length >= options.config.booking.capacity;
       function overlaps(id) {
-        return !full && courts.some(function (other) { return other.id !== court.id && other.date === court.date && other.time === court.time && other.green.indexOf(id) >= 0; });
+        return !full && courts.some(function (other) { return other.id !== court.id && options.model.overlaps(other, court) && other.green.indexOf(id) >= 0; });
       }
       function control(label, status, id) {
         var button = element("button", "button secondary", label); button.type = "button";
@@ -250,7 +250,7 @@
         heading.appendChild(date);
         var meta = element("p", "game-meta");
         meta.append(element("span", "game-time", formatTime(court.time)), element("span", "game-court", "Court " + court.courtNumber),
-          element("span", "game-location", court.location === "nuffield" ? "Nuffield Health" : "Alexandra Courts"));
+          element("span", "game-location", court.location === "nuffield" ? "Nuffield" : "Alexandra"));
         var facts = element("dl", "game-facts");
         var booker = element("div");
         booker.append(element("dt", "", "Booked by"), element("dd", "game-booker", name(court.bookedBy)));
@@ -299,7 +299,7 @@
         var isReserved = userId && court.reserved.indexOf(userId) >= 0;
         var full = court.green.length >= options.config.booking.capacity;
         var overlap = userId && !isGreen && !full && courts.some(function (other) {
-          return other.id !== court.id && other.date === court.date && other.time === court.time && other.green.indexOf(userId) >= 0;
+          return other.id !== court.id && options.model.overlaps(other, court) && other.green.indexOf(userId) >= 0;
         });
         var actions = element("div", "game-actions");
         actions.setAttribute("role", "group"); actions.setAttribute("aria-label", "Your place in this game");

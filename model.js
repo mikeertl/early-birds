@@ -13,6 +13,11 @@
       return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
         Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
     }
+    function startMinutes(time) { return Number(time.slice(0, 2)) * 60 + Number(time.slice(3)); }
+    function overlaps(a, b) {
+      return a.date === b.date && startMinutes(a.time) < startMinutes(b.time) + b.durationMinutes &&
+        startMinutes(b.time) < startMinutes(a.time) + a.durationMinutes;
+    }
     function timestamp(value) {
       return typeof value === "string" && /Z$/.test(value) && Number.isFinite(Date.parse(value));
     }
@@ -39,12 +44,13 @@
       check(Array.isArray(value.courts) && Array.isArray(value.bagels), "Invalid game data.");
       var known = new Set(directory.users.map(function (user) { return user.id; }));
       check(!value.updatedBy || known.has(value.updatedBy), "Unknown game-data author.");
-      var ids = new Set(), slots = new Set(), places = new Set();
+      var ids = new Set(), previous = [];
       value.courts.forEach(function (court) {
         fields(court, ["id", "date", "time", "durationMinutes", "courtNumber", "code", "location", "bookedBy", "green", "reserved", "createdAt", "createdBy"]);
         check(text(court.id) && !ids.has(court.id), "Invalid or duplicate court ID."); ids.add(court.id);
-        check(date(court.date) && typeof court.time === "string" && /^\d{2}:00$/.test(court.time) &&
-          Number(court.time.slice(0, 2)) >= booking.firstStartHour && Number(court.time.slice(0, 2)) <= booking.lastStartHour &&
+        check(date(court.date) && typeof court.time === "string" && /^\d{2}:(00|30)$/.test(court.time) &&
+          (court.location === "nuffield" || court.time.slice(3) === "00") &&
+          startMinutes(court.time) >= booking.firstStartHour * 60 && startMinutes(court.time) <= booking.lastStartHour * 60 &&
           court.durationMinutes === booking.durationMinutes, "Invalid court date or time.");
         check(Number.isInteger(court.courtNumber) && court.courtNumber >= booking.firstCourtNumber &&
           court.courtNumber <= (court.location === "nuffield" ? booking.nuffieldLastCourtNumber : booking.lastCourtNumber) && typeof court.code === "string" &&
@@ -54,12 +60,12 @@
         check(Array.isArray(court.green) && Array.isArray(court.reserved) && court.green.length <= booking.capacity, "Invalid court capacity.");
         var members = court.green.concat(court.reserved);
         check(new Set(members).size === members.length && members.every(function (id) { return known.has(id); }), "Invalid or duplicate court player.");
-        var slot = court.date + "/" + court.time;
-        var courtSlot = slot + "/" + (court.location || "alexandra") + "/" + court.courtNumber;
-        check(!slots.has(courtSlot), "That court is already booked at this time."); slots.add(courtSlot);
-        court.green.forEach(function (id) {
-          check(!places.has(slot + "/" + id), "A player already has an overlapping green place."); places.add(slot + "/" + id);
+        previous.filter(function (other) { return overlaps(court, other); }).forEach(function (other) {
+          check((court.location || "alexandra") !== (other.location || "alexandra") || court.courtNumber !== other.courtNumber,
+            "That court is already booked at this time.");
+          check(!court.green.some(function (id) { return other.green.indexOf(id) >= 0; }), "A player already has an overlapping green place.");
         });
+        previous.push(court);
       });
       ids = new Set();
       value.bagels.forEach(function (bagel) {
@@ -90,7 +96,7 @@
       if (!court) return false;
       var clock = londonClock(now);
       var ended = court.date < clock.date || (court.date === clock.date &&
-        clock.minutes >= Number(court.time.slice(0, 2)) * 60 + court.durationMinutes);
+        clock.minutes >= startMinutes(court.time) + court.durationMinutes);
       return ended && (fromAdmin || (court.date === clock.date && court.green.indexOf(actor.userId) >= 0));
     }
     function applyState(original, directory, action, actor, now) {
@@ -99,7 +105,7 @@
       function admin() { check(actor.isAdmin, "Admin mode is required for this change."); }
       function active(id) { check(directory.users.some(function (user) { return user.id === id && user.active; }), "That player is not active."); }
       function owned(court) { check(court && (actor.isAdmin || court.bookedBy === actor.userId), "Only the booker or Admin can change this court."); }
-      function future(court) { check(court.date > clock.date || (court.date === clock.date && Number(court.time.slice(0, 2)) * 60 > clock.minutes), "Bookings must start in the future."); }
+      function future(court) { check(court.date > clock.date || (court.date === clock.date && startMinutes(court.time) > clock.minutes), "Bookings must start in the future."); }
       function bookingDate(court) {
         if (actor.isAdmin) check(court.date >= clock.date, "Courts before today have expired. Use historical bagel entry for previous dates.");
         else future(court);
@@ -224,7 +230,7 @@
       } else throw new Error("Unknown player-data action.");
       return validateUsers(next);
     }
-    return Object.freeze({ validateUsers: validateUsers, validateState: validateState, applyState: applyState, applyUsers: applyUsers, londonClock: londonClock, canReportBagel: canReportBagel });
+    return Object.freeze({ validateUsers: validateUsers, validateState: validateState, applyState: applyState, applyUsers: applyUsers, londonClock: londonClock, startMinutes: startMinutes, overlaps: overlaps, canReportBagel: canReportBagel });
   }
   if (typeof module === "object" && module.exports) module.exports = createModel;
   else root.createEarlyBirdsModel = createModel;

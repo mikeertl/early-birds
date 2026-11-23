@@ -89,11 +89,13 @@ use historical bagel entry for older results. Games keeps future-only booking,
 including when the signed-in player has Admin mode enabled. Duplicate, overlap,
 court-number and code validation still apply.
 
-Time defaults to 08:00, with hourly starts from 07:00 to 21:00 and a fixed one-hour
-duration in Europe/London. Choose court 1–6 and enter a six-digit code. A pasted
-leading star is removed; the form displays one star and preserves leading zeroes.
-The shared store rejects duplicate court/date/time bookings and overlapping green
-places for the booker. Different players can book separate simultaneous courts.
+Time defaults to 08:00. Alexandra offers hourly starts and Nuffield offers starts
+every 30 minutes, both from 07:00 through 21:00. Bookings last one hour in
+Europe/London. Choose court 1–6 at Alexandra and enter a six-digit code, or court
+1–4 at Nuffield with no code. Switching to Alexandra clears a half-hour start
+and requires a valid hourly selection. A pasted leading star is removed; the form displays one star and preserves leading zeroes.
+The shared store rejects overlapping bookings on the same court and location,
+and overlapping green places for the booker. Different players can book separate simultaneous courts.
 
 Save is disabled while pending; the form closes only after confirmation. Failed
 details remain available when closing/reopening the form in the same tab, with a
@@ -310,15 +312,15 @@ Bookers see **Edit court** and **Delete court** on their own Games cards.
 The **Admin** tab lists all courts with management controls, including changing
 booked-by. Games keeps the booker fixed even when the player has Admin mode on.
 Editing prefills the existing details and uses the same
-date, hourly time, court-number and location validation as adding a court.
-Location defaults to **Alexandra Courts**, which requires a six-digit access code.
-**Nuffield Health** offers courts 1–4, hides the code input and saves an empty code.
-Alexandra Courts offers courts 1–6. Switching from court 5 or 6 to Nuffield clears
+date, location-specific start time, court-number and location validation as adding a court.
+Location defaults to **Alexandra**, which requires a six-digit access code.
+**Nuffield** offers courts 1–4, hides the code input and saves an empty code.
+Alexandra offers courts 1–6. Switching from court 5 or 6 to Nuffield clears
 the court selection so a valid court must be chosen. Games and Admin
 cards show the location beside the time and court number, and only Alexandra
 bookings show a code. Existing bookings without a location are treated as
-Alexandra Courts without rewriting their data. Duplicate court/time checks apply
-within each location; player overlap checks still apply across both locations.
+Alexandra without rewriting their data. Court overlap checks apply within each
+location; player overlap checks span both locations and the full one-hour duration.
 Only Admin can change booked-by, choosing an active player. Changing ownership
 preserves the current playing/reserve lists; it does not enrol the new booker.
 Moving a booking checks every green player's other games and rejects overlaps.

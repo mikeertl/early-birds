@@ -94,6 +94,48 @@ test('court limits allow Nuffield court 4 and Alexandra court 6, including locat
   assert.equal(model.applyState(alexandra, seedUsers, {...move, expected:{...move.expected, courtNumber:6},
     changes:{...move.changes, courtNumber:4}}, actor, now).courts[0].courtNumber, 4);
 });
+test('Nuffield half-hour starts validate boundaries and preserve one-hour duration', () => {
+  const actor = {userId:'mike-ertl', isAdmin:false};
+  const action = {type:'court.add', court:{id:'half-hour', date:'2099-10-15', time:'07:30',
+    courtNumber:1, location:'nuffield', code:'', bookedBy:actor.userId}};
+  for (const time of ['07:00','07:30','08:30','20:30','21:00']) {
+    const added = model.applyState(seedState, seedUsers, {...action, court:{...action.court,time}}, actor, now);
+    assert.equal(added.courts[0].time,time);
+    assert.equal(added.courts[0].durationMinutes,60);
+  }
+  for (const time of ['06:30','21:30','07:15','07:60','24:00']) {
+    assert.throws(()=>model.applyState(seedState, seedUsers, {...action, court:{...action.court,time}}, actor, now), /date or time/);
+  }
+  const added = model.applyState(seedState, seedUsers, action, actor, now);
+  assert.throws(()=>model.applyState(added, seedUsers, {type:'court.patch',courtId:'half-hour',
+    expected:{location:'nuffield',code:''}, changes:{location:'alexandra',code:'012345'}},actor,now), /date or time/);
+  assert.equal(model.applyState(added, seedUsers, {type:'court.patch',courtId:'half-hour',
+    expected:{time:'07:30'},changes:{time:'08:30'}},actor,now).courts[0].time,'08:30');
+});
+test('half-hour bookings reject intersecting courts and players but allow adjacent games and reserves', () => {
+  const first = court('first',{date:'2099-10-15',location:'nuffield',code:'',time:'08:30'});
+  const second = {...first,id:'second',green:['akiko'],bookedBy:'akiko'};
+  const validate = extra=>model.validateState({...clone(seedState),courts:[first,{...second,...extra}]},seedUsers);
+  for (const time of ['08:00','08:30','09:00']) {
+    assert.throws(()=>validate({time}), /already booked/);
+    assert.throws(()=>validate({time,courtNumber:2,green:['mike-ertl']}), /overlapping/);
+  }
+  assert.throws(()=>validate({time:'09:00',location:'alexandra',code:'012345',green:['mike-ertl']}), /overlapping/);
+  for (const time of ['07:30','09:30']) assert.doesNotThrow(()=>validate({time,green:['mike-ertl']}));
+  assert.doesNotThrow(()=>validate({time:'09:00',courtNumber:2,reserved:['mike-ertl']}));
+  assert.doesNotThrow(()=>validate({time:'09:00',location:'alexandra',code:'012345'}));
+});
+test('half-hour starts use minutes for future booking and completed-game eligibility', () => {
+  const actor = {userId:'mike-ertl',isAdmin:false};
+  const action = {type:'court.add',court:{id:'half-hour',date:'2026-11-23',time:'07:30',
+    courtNumber:1,location:'nuffield',code:'',bookedBy:actor.userId}};
+  const added = model.applyState(seedState,seedUsers,action,actor,'2026-11-23T07:15:00Z');
+  assert.throws(()=>model.applyState(seedState,seedUsers,action,actor,'2026-11-23T07:30:00Z'),/future/);
+  const game = added.courts[0];
+  assert.equal(model.canReportBagel(game,actor,'2026-11-23T08:00:00Z',false),false);
+  assert.equal(model.canReportBagel(game,actor,'2026-11-23T08:29:00Z',false),false);
+  assert.equal(model.canReportBagel(game,actor,'2026-11-23T08:30:00Z',false),true);
+});
 test('initial documents validate and reads do not save', async () => {
   const remote=server(); const {store}=client(remote);
   const snapshot=await store.refresh();
