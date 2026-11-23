@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-23T14:52:53.465Z",
+  "updatedAt": "2026-11-23T14:53:45.077Z",
   "updatedBy": "dimitar",
   "courts": [
     {
@@ -68,8 +68,7 @@
       "durationMinutes": 60,
       "green": [
         "mike-ertl",
-        "akiko",
-        "dimitar"
+        "akiko"
       ],
       "reserved": [],
       "createdAt": "2026-11-23T12:24:30.564Z",
