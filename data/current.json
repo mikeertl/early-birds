@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-23T12:23:42.192Z",
+  "updatedAt": "2026-11-23T12:24:30.564Z",
   "updatedBy": "mike-ertl",
   "courts": [
     {
@@ -52,6 +52,22 @@
       ],
       "reserved": [],
       "createdAt": "2026-11-23T12:23:42.192Z",
+      "createdBy": "mike-ertl"
+    },
+    {
+      "id": "court-fb1d2b81-0519-4d11-8d8b-b4e3a2cc4a25",
+      "date": "2026-12-02",
+      "time": "08:00",
+      "courtNumber": 4,
+      "code": "",
+      "location": "nuffield",
+      "bookedBy": "mike-ertl",
+      "durationMinutes": 60,
+      "green": [
+        "mike-ertl"
+      ],
+      "reserved": [],
+      "createdAt": "2026-11-23T12:24:30.564Z",
       "createdBy": "mike-ertl"
     }
   ],
