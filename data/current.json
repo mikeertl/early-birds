@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-23T17:47:24.647Z",
-  "updatedBy": "mike-ertl",
+  "updatedAt": "2026-11-24T07:07:43.379Z",
+  "updatedBy": "akiko",
   "courts": [
-    {
-      "id": "court-e46997c2-31ce-4544-9cd7-3e46c08b3fdb",
-      "date": "2026-11-23",
-      "time": "08:00",
-      "courtNumber": 3,
-      "code": "415863",
-      "bookedBy": "akiko",
-      "durationMinutes": 60,
-      "green": [
-        "akiko",
-        "mike-ertl",
-        "dimitar",
-        "susan"
-      ],
-      "reserved": [],
-      "createdAt": "2026-11-19T15:52:51.524Z",
-      "createdBy": "akiko"
-    },
     {
       "id": "court-cef117a8-c780-426d-ad47-7b4a1cde991d",
       "date": "2026-11-26",
