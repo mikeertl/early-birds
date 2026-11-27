@@ -1,26 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-25T14:12:11.982Z",
-  "updatedBy": "dimitar",
+  "updatedAt": "2026-11-27T07:18:33.458Z",
+  "updatedBy": "mike-ertl",
   "courts": [
-    {
-      "id": "court-cef117a8-c780-426d-ad47-7b4a1cde991d",
-      "date": "2026-11-26",
-      "time": "08:00",
-      "courtNumber": 4,
-      "code": "073131",
-      "location": "alexandra",
-      "bookedBy": "mike-ertl",
-      "durationMinutes": 60,
-      "green": [
-        "mike-ertl",
-        "akiko",
-        "dimitar"
-      ],
-      "reserved": [],
-      "createdAt": "2026-11-22T20:46:36.268Z",
-      "createdBy": "mike-ertl"
-    },
     {
       "id": "court-fb9b4acb-5451-4041-b58d-83169cfbdde1",
       "date": "2026-12-01",
