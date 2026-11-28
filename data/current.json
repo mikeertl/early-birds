@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-27T07:18:33.458Z",
-  "updatedBy": "mike-ertl",
+  "updatedAt": "2026-11-28T06:43:33.765Z",
+  "updatedBy": "akiko",
   "courts": [
     {
       "id": "court-fb9b4acb-5451-4041-b58d-83169cfbdde1",
@@ -54,6 +54,22 @@
       ],
       "reserved": [],
       "createdAt": "2026-11-23T16:12:55.773Z",
+      "createdBy": "akiko"
+    },
+    {
+      "id": "court-0e7bd3b5-1c21-4901-9d2d-24571caa409f",
+      "date": "2026-12-03",
+      "time": "08:00",
+      "courtNumber": 5,
+      "code": "478719",
+      "location": "alexandra",
+      "bookedBy": "akiko",
+      "durationMinutes": 60,
+      "green": [
+        "akiko"
+      ],
+      "reserved": [],
+      "createdAt": "2026-11-28T06:43:33.765Z",
       "createdBy": "akiko"
     }
   ],
